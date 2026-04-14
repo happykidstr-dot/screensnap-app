@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=320" />
+  <title>ScreenSnap</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d0b1a;
+      color: #e2e0f0;
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #1e1030, #0d0b1a);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(124,58,237,0.2);
+    }
+    .logo {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .header h1 { font-size: 15px; font-weight: 800; color: #fff; }
+    .header p { font-size: 10px; color: #7c6aad; margin-top: 1px; }
+
+    .body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 12px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      font-size: 11px; color: #94a3b8;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; }
+    .status-dot.active { background: #22c55e; box-shadow: 0 0 6px #22c55e; animation: pulse 1.5s infinite; }
+    .status-dot.meeting { background: #f97316; box-shadow: 0 0 6px #f97316; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    .meeting-badge {
+      display: none; align-items: center; gap: 8px;
+      padding: 10px 12px; border-radius: 12px;
+      background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3);
+      font-size: 11px; color: #fdba74;
+    }
+    .meeting-badge.visible { display: flex; }
+    .meeting-badge .platform { font-weight: 700; }
+
+    .btn {
+      width: 100%; padding: 12px; border-radius: 12px;
+      border: none; cursor: pointer; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.15s; text-decoration: none; color: #fff;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      box-shadow: 0 4px 15px rgba(124,58,237,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.45); }
+    .btn-primary:active { transform: none; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: #94a3b8; font-size: 12px; padding: 9px;
+    }
+    .btn-secondary:hover { color: #fff; background: rgba(255,255,255,0.1); }
+    .btn-red { background: linear-gradient(135deg, #dc2626, #b91c1c); box-shadow: 0 4px 15px rgba(220,38,38,0.3); }
+
+    .divider { height: 1px; background: rgba(255,255,255,0.06); }
+
+    .timer {
+      font-family: monospace; font-size: 22px; font-weight: 800;
+      text-align: center; color: #fff; letter-spacing: 2px;
+      display: none;
+    }
+    .timer.visible { display: block; }
+
+    .quick-links { display: flex; gap: 6px; }
+    .quick-links .btn { flex: 1; font-size: 11px; padding: 8px 6px; }
+
+    .screensnap-url {
+      font-size: 10px; color: #5b4d8a; text-align: center;
+      padding: 6px; cursor: pointer;
+    }
+    .screensnap-url:hover { color: #7c6aad; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">S</div>
+    <div>
+      <h1>ScreenSnap</h1>
+      <p>Professional Screen Recorder</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="status-bar" id="statusBar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Hazir — Kayit baslatmak icin tiklayin</span>
+    </div>
+
+    <div class="meeting-badge" id="meetingBadge">
+      <span>Meeting tespit edildi:</span>
+      <span class="platform" id="meetingPlatform">Google Meet</span>
+    </div>
+
+    <div class="timer" id="timer">00:00</div>
+
+    <button class="btn btn-primary" id="recordBtn">
+      <span id="recordIcon">&#9679;</span>
+      <span id="recordLabel">ScreenSnap'i Ac ve Kaydet</span>
+    </button>
+
+    <div class="divider"></div>
+
+    <div class="quick-links">
+      <button class="btn btn-secondary" id="openAppBtn">Uygulamayi Ac</button>
+      <button class="btn btn-secondary" id="openSettingsBtn">Ayarlar</button>
+    </div>
+
+    <div class="screensnap-url" id="appUrl">localhost:3000</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
