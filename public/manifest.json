@@ -1,0 +1,44 @@
+{
+  "name": "ScreenSnap — Professional Screen Recorder",
+  "short_name": "ScreenSnap",
+  "description": "Record, share and analyze screen recordings. AI-powered summaries, chapters, quiz, virtual backgrounds and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0b1a",
+  "theme_color": "#7c3aed",
+  "orientation": "any",
+  "categories": ["productivity", "utilities", "business"],
+  "screenshots": [
+    { "src": "/kilavuz/screenshot1.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Recording Dashboard" }
+  ],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Recording",
+      "short_name": "Record",
+      "description": "Start a new screen recording",
+      "url": "/?action=record",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Recordings",
+      "short_name": "Library",
+      "description": "View all recordings",
+      "url": "/?tab=library",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
