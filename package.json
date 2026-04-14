@@ -1,0 +1,38 @@
+{
+  "name": "screensnap",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@mediapipe/tasks-vision": "^0.10.34",
+    "@supabase/supabase-js": "^2.103.0",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/qrcode": "^1.5.6",
+    "idb": "^8.0.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.513.0",
+    "modern-gif": "^2.0.4",
+    "next": "^15.0.0",
+    "peerjs": "^1.5.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.9",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.7.3"
+  }
+}
