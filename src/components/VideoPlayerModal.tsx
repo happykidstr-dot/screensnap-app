@@ -658,7 +658,6 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
             <button onClick={() => {
               const b = record.blob;
               if (!b || b.size === 0) { alert('Video verisi boş — kayıt sırasında bir sorun oluşmuş olabilir.'); return; }
-              // Re-wrap with explicit MIME type to fix browser MIME-detection failures
               const safeBlob = b.type ? b : new Blob([b], { type: 'video/webm' });
               downloadBlob(safeBlob, `${title}.webm`);
             }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-medium transition-colors shadow-lg" style={{ backgroundColor: brandColor }}>
@@ -666,6 +665,12 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
             </button>
             <button onClick={handleDelete} className="p-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"><Trash2 className="w-4 h-4" /></button>
           </div>
+
+          {/* ── SOSYAL MEDYADA PAYLAŞ ── */}
+          <SocialSharePanel cloudUrl={cloudUrl} title={title} blob={record.blob} onDownload={() => {
+            const safeBlob = record.blob.type ? record.blob : new Blob([record.blob], { type: 'video/webm' });
+            downloadBlob(safeBlob, `${title}.mp4`);
+          }} />
 
           {/* Push to Project Config */}
           {showPushDialog && (
@@ -1153,6 +1158,201 @@ function EmptyTab({ icon, msg, hint }: { icon: string; msg: string; hint: string
       <span className="text-3xl block mb-2">{icon}</span>
       <p className="text-sm font-medium text-slate-400">{msg}</p>
       <p className="text-xs mt-1">{hint}</p>
+    </div>
+  );
+}
+
+// ─── Social Share Panel ───────────────────────────────────────────────────────
+interface SocialPlatform {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  border: string;
+  text: string;
+  /** true = can share via URL intent, false = requires upload */
+  urlShare: boolean;
+  shareUrl?: (url: string, title: string) => string;
+  uploadUrl?: string;
+}
+
+const SOCIAL_PLATFORMS: SocialPlatform[] = [
+  {
+    id: 'facebook', label: 'Facebook', icon: '🟦', color: 'bg-blue-600/20 hover:bg-blue-600/35', border: 'border-blue-500/30', text: 'text-blue-300',
+    urlShare: true,
+    shareUrl: (u, _t) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}`,
+    uploadUrl: 'https://www.facebook.com/reels/create',
+  },
+  {
+    id: 'youtube', label: 'YouTube', icon: '🔴', color: 'bg-red-600/20 hover:bg-red-600/35', border: 'border-red-500/30', text: 'text-red-300',
+    urlShare: false,
+    uploadUrl: 'https://studio.youtube.com/channel/upload',
+  },
+  {
+    id: 'instagram', label: 'Instagram', icon: '📸', color: 'bg-pink-600/20 hover:bg-pink-600/35', border: 'border-pink-500/30', text: 'text-pink-300',
+    urlShare: false,
+    uploadUrl: 'https://www.instagram.com/create/story',
+  },
+  {
+    id: 'linkedin', label: 'LinkedIn', icon: '💼', color: 'bg-sky-600/20 hover:bg-sky-600/35', border: 'border-sky-500/30', text: 'text-sky-300',
+    urlShare: true,
+    shareUrl: (u, t) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(u)}&title=${encodeURIComponent(t)}`,
+    uploadUrl: 'https://www.linkedin.com/feed/',
+  },
+  {
+    id: 'twitter', label: 'X / Twitter', icon: '𝕏', color: 'bg-slate-600/20 hover:bg-slate-600/35', border: 'border-slate-500/30', text: 'text-slate-200',
+    urlShare: true,
+    shareUrl: (u, t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}`,
+  },
+  {
+    id: 'whatsapp', label: 'WhatsApp', icon: '💬', color: 'bg-green-600/20 hover:bg-green-600/35', border: 'border-green-500/30', text: 'text-green-300',
+    urlShare: true,
+    shareUrl: (u, t) => `https://wa.me/?text=${encodeURIComponent(`${t} — ${u}`)}`,
+  },
+  {
+    id: 'telegram', label: 'Telegram', icon: '✈️', color: 'bg-cyan-600/20 hover:bg-cyan-600/35', border: 'border-cyan-500/30', text: 'text-cyan-300',
+    urlShare: true,
+    shareUrl: (u, t) => `https://t.me/share/url?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}`,
+  },
+  {
+    id: 'tiktok', label: 'TikTok', icon: '🎵', color: 'bg-fuchsia-600/20 hover:bg-fuchsia-600/35', border: 'border-fuchsia-500/30', text: 'text-fuchsia-300',
+    urlShare: false,
+    uploadUrl: 'https://www.tiktok.com/upload',
+  },
+  {
+    id: 'dailymotion', label: 'Dailymotion', icon: '🎬', color: 'bg-orange-600/20 hover:bg-orange-600/35', border: 'border-orange-500/30', text: 'text-orange-300',
+    urlShare: false,
+    uploadUrl: 'https://www.dailymotion.com/upload',
+  },
+  {
+    id: 'vimeo', label: 'Vimeo', icon: '🎞️', color: 'bg-teal-600/20 hover:bg-teal-600/35', border: 'border-teal-500/30', text: 'text-teal-300',
+    urlShare: false,
+    uploadUrl: 'https://vimeo.com/upload',
+  },
+];
+
+function SocialSharePanel({ cloudUrl, title, blob, onDownload }: {
+  cloudUrl?: string | null;
+  title: string;
+  blob: Blob;
+  onDownload: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pendingPlatform, setPendingPlatform] = useState<SocialPlatform | null>(null);
+
+  const handlePlatform = (p: SocialPlatform) => {
+    if (p.urlShare && cloudUrl) {
+      // Direct URL intent
+      window.open(p.shareUrl!(cloudUrl, title), '_blank');
+    } else if (p.uploadUrl) {
+      // Show download-first prompt
+      setPendingPlatform(p);
+    } else if (p.urlShare && !cloudUrl) {
+      alert('Önce videoyu buluta yükleyin (Cloud → Upload) veya link alın. Sonra platformda paylaşabilirsiniz.');
+    }
+  };
+
+  const handleDownloadAndOpen = () => {
+    if (!pendingPlatform) return;
+    onDownload();
+    setTimeout(() => {
+      window.open(pendingPlatform.uploadUrl, '_blank');
+      setPendingPlatform(null);
+    }, 800);
+  };
+
+  return (
+    <div className="border-b border-white/10">
+      {/* Toggle header */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-6 py-3 hover:bg-white/5 transition-colors text-left group"
+      >
+        <div className="flex items-center gap-2 flex-1">
+          <span className="text-base">📣</span>
+          <span className="text-sm font-bold text-slate-300">Sosyal Medyada Paylaş</span>
+          <span className="text-[11px] text-slate-600 ml-1">
+            {cloudUrl ? '— link hazır ✓' : '— önce indir, sonra yükle'}
+          </span>
+        </div>
+        <span className={`text-slate-500 text-xs transition-transform ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+
+      {open && (
+        <div className="px-6 pb-5">
+          {/* Status bar */}
+          {!cloudUrl && (
+            <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <span className="text-amber-400 text-sm mt-0.5">⚠️</span>
+              <div>
+                <p className="text-xs text-amber-300 font-semibold">Cloud linki yok</p>
+                <p className="text-[11px] text-slate-500">Facebook, LinkedIn, Twitter gibi URL-tabanlı platformlar için önce <b>Upload</b> butonuyla buluta yükleyin. Instagram, YouTube, TikTok için video indirilip platforma yüklenir.</p>
+              </div>
+            </div>
+          )}
+          {cloudUrl && (
+            <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-emerald-400">✅</span>
+              <p className="text-xs text-emerald-300 font-semibold">Cloud linki hazır — URL tabanlı platformlarda tek tıkla paylaşabilirsiniz.</p>
+            </div>
+          )}
+
+          {/* Platform grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+            {SOCIAL_PLATFORMS.map(p => {
+              const canDirectShare = p.urlShare && cloudUrl;
+              const needsDownload = !p.urlShare && p.uploadUrl;
+              const noCloud = p.urlShare && !cloudUrl;
+
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handlePlatform(p)}
+                  title={
+                    canDirectShare ? `${p.label}'da paylaş` :
+                    needsDownload ? `Videoyu indir, ${p.label}'a yükle` :
+                    `Önce buluta yükleyin`
+                  }
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-2xl border transition-all font-semibold ${p.color} ${p.border} ${p.text} ${noCloud ? 'opacity-50' : 'hover:scale-[1.03] hover:shadow-lg'}`}
+                >
+                  <span className="text-xl leading-none">{p.icon}</span>
+                  <span className="text-[11px] font-bold leading-tight text-center">{p.label}</span>
+                  <span className="text-[9px] opacity-60 leading-tight">
+                    {canDirectShare ? '🔗 Link ile' : needsDownload ? '⬇️ İndir & Yükle' : '🔗 Link gerekli'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Download-and-open confirmation modal */}
+          {pendingPlatform && (
+            <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/15 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{pendingPlatform.icon}</span>
+                <div>
+                  <p className="text-sm font-bold text-white">{pendingPlatform.label} Yükleme</p>
+                  <p className="text-xs text-slate-400">Video bilgisayarınıza indirilecek, ardından {pendingPlatform.label} yükleme sayfası açılacak.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDownloadAndOpen}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${pendingPlatform.color} ${pendingPlatform.border} ${pendingPlatform.text} border`}
+                >
+                  <Download className="w-4 h-4" /> İndir & {pendingPlatform.label}&apos;ı Aç
+                </button>
+                <button
+                  onClick={() => setPendingPlatform(null)}
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white border border-white/10 hover:bg-white/10 text-sm transition-all"
+                >
+                  İptal
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
