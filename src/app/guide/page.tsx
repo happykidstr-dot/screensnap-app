@@ -11,7 +11,7 @@ const sections = [
     color: 'from-purple-600 to-violet-700',
     title: '🚀 İlk Kaydını Al',
     steps: [
-      { step: '1', title: 'Uygulamayı aç', desc: 'Tarayıcında şu adresi aç:', code: 'http://localhost:3002' },
+      { step: '1', title: 'Uygulamayı aç', desc: 'Tarayıcında şu adresini aç:', code: 'https://screensnap.netlify.app' },
       { step: '2', title: 'Ayarları seç', desc: 'Screen, Webcam, Microphone ve System Audio toggle\'larını istediğin gibi aç/kapat. Mor = aktif.' },
       { step: '3', title: 'Kaydı başlat', desc: '"Start Recording" butonuna tıkla. 3-2-1 geri sayımı başlar (bip sesi duyarsın).' },
       { step: '4', title: 'Ekranı seç', desc: 'Tarayıcı senden ekran seçmeni ister. Hangi pencere veya ekranı kaydetmek istiyorsan seç → "Share" tıkla.' },
@@ -188,7 +188,7 @@ export default function GuidePage() {
           </h3>
           <ol className="space-y-2">
             {[
-              'http://localhost:3002 adresi aç',
+              'screensnap.netlify.app adresini aç',
               'Screen + Webcam + Mic toggle\'larını aç (mor = aktif)',
               '"Start Recording" butonuna tıkla',
               'Geri sayım biter, tarayıcıdan ekranını seç → "Share"',
