@@ -6,7 +6,9 @@ import { FRAME_OPTIONS, FrameStyle, drawFrame, KJ_STYLE_OPTIONS, KJ_POSITION_OPT
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useLiveShare } from '@/hooks/useLiveShare';
 import { useGuestRoom } from '@/hooks/useGuestRoom';
-import { getAllVideos, deleteVideo, VideoRecord, getAllFolders, updateVideoFolder } from '@/lib/db';
+import { getAllVideos, deleteVideo, VideoRecord, getAllFolders, updateVideoFolder, updateVideoTags } from '@/lib/db';
+import { Lang, t, getSavedLang, saveLang } from '@/lib/i18n';
+import { RecordingPreset } from '@/lib/presets';
 import AudioVisualizer from '@/components/AudioVisualizer';
 import DrawOverlay from '@/components/DrawOverlay';
 import VideoPlayerModal from '@/components/VideoPlayerModal';
@@ -17,13 +19,18 @@ import CamPreview from '@/components/CamPreview';
 import ScreenshotModal from '@/components/ScreenshotModal';
 import Teleprompter from '@/components/Teleprompter';
 import VirtualBgPicker from '@/components/VirtualBgPicker';
+import LanguageToggle from '@/components/LanguageToggle';
+import PresetManager from '@/components/PresetManager';
+import BatchToolbar from '@/components/BatchToolbar';
+import SignLanguagePanel from '@/components/SignLanguagePanel';
+import ShareModal from '@/components/ShareModal';
 import {
   Monitor, Camera, Mic, MicOff, CameraOff, MonitorOff,
   Square, Pause, Play, Circle, Trash2, Clock,
   HardDrive, LayoutGrid, Video, Search, Tag, PenLine, X,
   ChevronDown, Zap, Settings, Folder, FolderPlus, Headphones,
   AudioLines, Mouse, Keyboard, Timer, Radio, Wifi, WifiOff, Users, BookOpen, Camera as CameraIcon, FileText,
-  Hash, ShieldAlert, Building2
+  Hash, ShieldAlert, Building2, BarChart3, Download, CheckSquare, Share2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -46,20 +53,63 @@ function useSaveDialog() {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function Home() {
   const saveDialog = useSaveDialog();
-  const guestRoom = useGuestRoom();
   const [showGuestPanel, setShowGuestPanel] = useState(false);
   const [copiedGuestLink, setCopiedGuestLink] = useState(false);
+  const [showSignLanguage, setShowSignLanguage] = useState(false);
+  
+  // ─── i18n ───
+  const [lang, setLang] = useState<Lang>('tr');
+  useEffect(() => { setLang(getSavedLang()); }, []);
+  const changeLang = (l: Lang) => { setLang(l); saveLang(l); };
+
+  // ─── Batch mode ───
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // ─── Presets ───
+  const [showPresets, setShowPresets] = useState(false);
+
+  // ─── Share ───
+  const [shareVideo, setShareVideo] = useState<VideoRecord | null>(null);
+
+  // ─── PWA Install ───
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); setShowInstallBanner(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    (installPrompt as any).prompt();
+    setShowInstallBanner(false);
+  };
+
+  // React state to hold the live composition stream so we can pass it to guests
+  const [broadcastStream, setBroadcastStream] = useState<MediaStream | null>(null);
+
+  const guestRoom = useGuestRoom(broadcastStream);
 
   const recorder = useRecorder({
     onRequestTitle: saveDialog.requestTitle,
     onSaved: () => loadVideos(),
     onDrawGuests: guestRoom.guests.length > 0
       ? (ctx, outW, outH) => {
-          const gH = Math.round(outH * 0.28);
-          guestRoom.drawGuestGrid(ctx, 0, outH - gH, outW, gH);
+          // Define a bounding box for the guests: on the right side
+          const margin = Math.round(Math.min(outW, outH) * 0.03);
+          const gW = Math.round(outW * 0.25); // Max 25% width per guest
+          const gH = outH - (margin * 2);     // Almost full height to stack vertically
+          guestRoom.drawGuestGrid(ctx, outW - gW - margin, margin, gW, gH);
         }
       : undefined,
   });
+
+  // Sync recorder's live stream state to broadcastStream (for guest room)
+  // recorder.liveStream is a proper React state, so this effect fires reliably
+  useEffect(() => {
+    setBroadcastStream(recorder.liveStream);
+  }, [recorder.liveStream]);
   const liveShare = useLiveShare();
 
   const [videos, setVideos] = useState<VideoRecord[]>([]);
@@ -105,8 +155,112 @@ export default function Home() {
 
   const handleDeleteFromList = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Delete this recording?')) { await deleteVideo(id); loadVideos(); }
+    if (confirm(t('deleteConfirm', lang))) { await deleteVideo(id); loadVideos(); }
   };
+
+  // ─── Batch Operations ───
+  const toggleBatchSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const handleBatchDelete = async () => {
+    if (!confirm(t('confirmBatchDelete', lang))) return;
+    for (const id of selectedIds) await deleteVideo(id);
+    setSelectedIds(new Set());
+    loadVideos();
+  };
+  const handleBatchExport = async () => {
+    for (const id of selectedIds) {
+      const v = videos.find(x => x.id === id);
+      if (!v) continue;
+      const url = URL.createObjectURL(v.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${v.title}.${v.blob.type.includes('audio') ? 'webm' : 'webm'}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+  const handleBatchMove = async (folder: string | null) => {
+    for (const id of selectedIds) await updateVideoFolder(id, folder || undefined);
+    loadVideos();
+  };
+  const handleBatchTag = async (tag: string) => {
+    for (const id of selectedIds) {
+      const v = videos.find(x => x.id === id);
+      if (!v) continue;
+      const tags = [...new Set([...(v.tags || []), tag])];
+      await updateVideoTags(id, tags);
+    }
+    loadVideos();
+  };
+
+  // ─── Preset Loading ───
+  const handleLoadPreset = (preset: RecordingPreset) => {
+    const c = preset.config;
+    recorder.setAudioOnly(c.audioOnly);
+    recorder.setWebcamOnly(c.webcamOnly);
+    recorder.setWithCam(c.withCam);
+    recorder.setWithMic(c.withMic);
+    recorder.setWithSystemAudio(c.withSystemAudio);
+    recorder.setQuality(c.quality as Quality);
+    recorder.setAspectRatio(c.aspectRatio as AspectRatio);
+    recorder.setWebcamShape(c.webcamShape as WebcamShape);
+    recorder.setWebcamPosition(c.webcamPosition as WebcamPosition);
+    recorder.setWebcamSizePct(c.webcamSizePct);
+    recorder.setWithTranscript(c.withTranscript);
+    recorder.setWithCountdownSound(c.withCountdownSound);
+    recorder.setWithIntroFade(c.withIntroFade);
+    recorder.setShowMouseHighlight(c.showMouseHighlight);
+    recorder.setShowKeyDisplay(c.showKeyDisplay);
+    recorder.setWithBgBlur(c.withBgBlur);
+    recorder.setFrameStyle(c.frameStyle as FrameStyle);
+    recorder.setLogoWatermark(c.logoWatermark);
+    recorder.setKjEnabled(c.kjEnabled);
+    if (c.kjLine1) recorder.setKjLine1(c.kjLine1);
+    if (c.kjLine2) recorder.setKjLine2(c.kjLine2);
+    recorder.setBroadcastScene(c.broadcastScene);
+    recorder.setLiveBadge(c.liveBadge);
+    recorder.setClockEnabled(c.clockEnabled);
+    recorder.setTickerEnabled(c.tickerEnabled);
+    if (c.tickerText) recorder.setTickerText(c.tickerText);
+    recorder.setScoreboardEnabled(c.scoreboardEnabled);
+    recorder.setStudioAudio(c.studioAudio);
+    setShowPresets(false);
+  };
+  const getCurrentConfig = (): RecordingPreset['config'] => ({
+    audioOnly: recorder.audioOnly,
+    webcamOnly: recorder.webcamOnly,
+    withCam: recorder.withCam,
+    withMic: recorder.withMic,
+    withSystemAudio: recorder.withSystemAudio,
+    quality: recorder.quality as '480p' | '720p' | '1080p',
+    aspectRatio: recorder.aspectRatio as '16:9' | '4:3' | '1:1' | '9:16',
+    webcamShape: recorder.webcamShape as 'circle' | 'rounded' | 'square',
+    webcamPosition: recorder.webcamPosition as 'br' | 'bl' | 'tr' | 'tl',
+    webcamSizePct: recorder.webcamSizePct,
+    withTranscript: recorder.withTranscript,
+    withCountdownSound: recorder.withCountdownSound,
+    withIntroFade: recorder.withIntroFade,
+    showMouseHighlight: recorder.showMouseHighlight,
+    showKeyDisplay: recorder.showKeyDisplay,
+    withBgBlur: recorder.withBgBlur,
+    frameStyle: recorder.frameStyle,
+    logoWatermark: recorder.logoWatermark,
+    kjEnabled: recorder.kjEnabled,
+    kjLine1: recorder.kjLine1,
+    kjLine2: recorder.kjLine2,
+    broadcastScene: recorder.broadcastScene as 'screen' | 'cam-big' | 'cam-only' | 'intro',
+    liveBadge: recorder.liveBadge,
+    clockEnabled: recorder.clockEnabled,
+    tickerEnabled: recorder.tickerEnabled,
+    tickerText: recorder.tickerText,
+    scoreboardEnabled: recorder.scoreboardEnabled,
+    studioAudio: recorder.studioAudio,
+  });
 
   const handleAddChapter = (ch: Chapter) => {
     setLiveChapters(prev => [...prev, ch]);
@@ -153,6 +307,43 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
+
+      {/* ── Sign Language Panel ── */}
+      {showSignLanguage && <SignLanguagePanel onClose={() => setShowSignLanguage(false)} />}
+
+      {/* ── Floating Sign Language Button ── */}
+      <button
+        id="btn-sign-language"
+        onClick={() => setShowSignLanguage(v => !v)}
+        title="Türk İşaret Dili (TİD)"
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '24px',
+          zIndex: 60,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '12px 18px',
+          borderRadius: '16px',
+          background: showSignLanguage
+            ? 'linear-gradient(135deg, #5b21b6, #1d4ed8)'
+            : 'linear-gradient(135deg, #7c3aed, #3b82f6)',
+          boxShadow: '0 8px 32px rgba(124,58,237,0.5)',
+          border: '1px solid rgba(167,139,250,0.4)',
+          color: 'white',
+          fontWeight: 800,
+          fontSize: '14px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseOver={e => { if (!showSignLanguage) (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)'; }}
+        onMouseOut={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+      >
+        <span style={{ fontSize: '20px' }}>🤟</span>
+        <span>İşaret Dili</span>
+      </button>
+
       {/* Screenshot Modal */}
       {showScreenshot && screenshotData && (
         <ScreenshotModal
@@ -334,10 +525,11 @@ export default function Home() {
             <span className="text-white font-bold text-lg tracking-tight">ScreenSnap</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageToggle lang={lang} onChange={changeLang} />
             <button
               onClick={() => setShowTeleprompter(v => !v)}
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-sm font-semibold shadow-sm"
-              title="Teleprompter Aç"
+              title="Teleprompter"
             >
               📜 Teleprompter
             </button>
@@ -383,11 +575,12 @@ export default function Home() {
                 </button>
               </div>
             )}
-            <Link href="/guide" title="Kullanım Kılavuzu" className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"><BookOpen className="w-5 h-5" /></Link>
+            <Link href="/analytics" title={t('analytics', lang)} className="p-2 rounded-xl text-slate-500 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"><BarChart3 className="w-5 h-5" /></Link>
+            <Link href="/guide" title={t('guide', lang)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"><BookOpen className="w-5 h-5" /></Link>
             {/* Screenshot button */}
             <button
               onClick={takeScreenshot}
-              title="Ekran Görüntüsü Al (Screenshot)"
+              title={t('screenshot', lang)}
               className="p-2 rounded-xl text-slate-500 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
             >
               <CameraIcon className="w-5 h-5" />
@@ -405,14 +598,21 @@ export default function Home() {
                 <Building2 className="w-4 h-4 text-purple-400" />
              </div>
              <div>
-                <h3 className="text-sm font-bold text-white leading-tight">Şirket Ağım</h3>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-purple-400">Enterprise</span>
+                <h3 className="text-sm font-bold text-white leading-tight">{t('myNetwork', lang)}</h3>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-purple-400">{t('enterprise', lang)}</span>
              </div>
+          </div>
+
+          {/* Quick links */}
+          <div className="mb-4 px-2 space-y-1">
+            <Link href="/analytics" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border-l-2 border-transparent hover:border-cyan-500 transition-all">
+              <BarChart3 className="w-4 h-4" /> {t('analytics', lang)}
+            </Link>
           </div>
           
           <div className="flex items-center justify-between mb-3 mt-4 px-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Çalışma Alanları</span>
-            <button onClick={() => setShowNewFolder(v => !v)} className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/10" title="Yeni Alan Oluştur"><FolderPlus className="w-4 h-4" /></button>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('workspaces', lang)}</span>
+            <button onClick={() => setShowNewFolder(v => !v)} className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/10" title={t('newWorkspace', lang)}><FolderPlus className="w-4 h-4" /></button>
           </div>
           
           {showNewFolder && (
@@ -426,7 +626,7 @@ export default function Home() {
           
           <div className="space-y-1">
             <button onClick={() => setActiveFolder(null)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${!activeFolder ? 'bg-purple-600/15 border-l-2 border-purple-500 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5 border-l-2 border-transparent'}`}>
-              <LayoutGrid className="w-4 h-4" /> Tüm Videolar <span className="ml-auto text-xs opacity-60 bg-white/10 px-1.5 rounded">{videos.length}</span>
+              <LayoutGrid className="w-4 h-4" /> {t('allVideos', lang)} <span className="ml-auto text-xs opacity-60 bg-white/10 px-1.5 rounded">{videos.length}</span>
             </button>
             {folders.map(f => (
               <button key={f} onClick={() => setActiveFolder(f === activeFolder ? null : f)}
@@ -626,17 +826,19 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-                {/* ─── LIVE WEBCAM MONITOR ─── */}
-                {isActive && recorder.camPreviewStream && (
+                {/* ─── LIVE OUTPUT MONITOR ─── */}
+                {isActive && (recorder.liveStream || recorder.camPreviewStream) && (
                   <div className="mb-6">
-                    <p className="text-slate-500 text-xs mb-2 text-center">📷 Canlı Kamera Önizleme</p>
+                    <p className="text-slate-500 text-xs mb-2 text-center">
+                      {recorder.liveStream ? '📺 Canlı Yayın Önizlemesi' : '📷 Canlı Kamera Önizleme'}
+                    </p>
                     <div className="relative rounded-2xl overflow-hidden mx-auto shadow-2xl border border-white/10"
-                         style={{ maxWidth: 320, aspectRatio: '16/9', background: '#000' }}>
+                         style={{ maxWidth: 480, aspectRatio: '16/9', background: '#000' }}>
                       <video
                         autoPlay muted playsInline
-                        ref={el => { if (el && recorder.camPreviewStream) el.srcObject = recorder.camPreviewStream; }}
-                        className="w-full h-full object-cover"
-                        style={{ transform: 'scaleX(-1)' }}
+                        ref={el => { if (el) el.srcObject = (recorder.liveStream || recorder.camPreviewStream); }}
+                        className="w-full h-full object-contain"
+                        style={{ transform: !recorder.liveStream ? 'scaleX(-1)' : 'none' }}
                       />
                       <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm">
                         <span className="w-2 h-2 rounded-full bg-red-500 recording-dot" />
@@ -876,39 +1078,85 @@ export default function Home() {
                                   <button onClick={() => recorder.setWebtvBg(null)} className="text-[9px] text-red-400/70 hover:text-red-400 ml-auto transition-colors">✕ Kaldır</button>
                                 )}
                               </label>
-                              <div className="grid grid-cols-5 gap-1.5">
-                                {[
-                                  { n: 1, label: '🏛️ Koyu Stüdyo' },
-                                  { n: 2, label: '📺 Breaking News' },
-                                  { n: 3, label: '💻 Teknoloji' },
-                                  { n: 4, label: '🌃 İstanbul Gece' },
-                                  { n: 5, label: '🌊 Mor Dalga' },
-                                  { n: 6, label: '🏢 Kurumsal' },
-                                  { n: 7, label: '🌌 Galaksi' },
-                                  { n: 8, label: '🌿 Doğa' },
-                                  { n: 9, label: '✨ Lüks Altın' },
-                                  { n: 10, label: '🎨 Modern' },
-                                ].map(({ n, label }) => {
-                                  const path = `/webtv-bg/bg${n}.png`;
-                                  const isActive = recorder.webtvBg === path;
-                                  return (
-                                    <button key={n} title={label}
-                                      onClick={() => recorder.setWebtvBg(isActive ? null : path)}
-                                      className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-video ${isActive ? 'border-purple-400 shadow-lg shadow-purple-500/30 scale-105' : 'border-white/15 hover:border-white/40 hover:scale-102'}`}>
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={path} alt={label} className="w-full h-full object-cover" />
-                                      {isActive && (
-                                        <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                                          <span className="text-white text-[10px]">✓</span>
-                                        </div>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                              {/* AI Studio Backgrounds */}
+                              <p className="text-[9px] text-purple-400/70 font-bold uppercase tracking-widest mb-1.5">✨ AI Stüdyo</p>
+                                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                                  {[
+                                    { n: 's1', label: '📡 Haber Stüdyo', path: '/webtv-bg/studio1.jpg' },
+                                    { n: 's2', label: '🔵 Neon Lab', path: '/webtv-bg/studio2.jpg' },
+                                    { n: 's3', label: '🌆 Şehir Manzarası', path: '/webtv-bg/studio3.jpg' },
+                                    { n: 's4', label: '🎙️ Podcast Odası', path: '/webtv-bg/studio4.jpg' },
+                                    { n: 's5', label: '💜 Mor Gradyan', path: '/webtv-bg/studio5.jpg' },
+                                    { n: 's6', label: '🌌 Galaksi', path: '/webtv-bg/studio6.jpg' },
+                                  ].map(({ n, label, path }) => {
+                                    const isActive = recorder.webtvBg === path;
+                                    return (
+                                      <button key={n} title={label}
+                                        onClick={() => recorder.setWebtvBg(isActive ? null : path)}
+                                        className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-video ${isActive ? 'border-purple-400 shadow-lg shadow-purple-500/30 scale-105' : 'border-white/15 hover:border-white/40 hover:scale-102'}`}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={`${path}?v=3`} alt={label} className="w-full h-full object-cover" />
+                                        {isActive && (
+                                          <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                                            <span className="text-white text-[10px]">✓</span>
+                                          </div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              {/* Classic TV Backgrounds */}
+                              <p className="text-[9px] text-amber-400/70 font-bold uppercase tracking-widest mb-1.5">📺 Haber / TV</p>
+                                <div className="grid grid-cols-5 gap-1.5">
+                                  {[
+                                    { n: 1, label: '🏛️ Koyu Stüdyo', path: '/webtv-bg/bg1.png' },
+                                    { n: 2, label: '📺 Breaking News', path: '/webtv-bg/bg2.png' },
+                                    { n: 3, label: '💻 Teknoloji', path: '/webtv-bg/bg3.png' },
+                                    { n: 4, label: '🌃 İstanbul Gece', path: '/webtv-bg/bg4.png' },
+                                    { n: 5, label: '🌊 Mor Dalga', path: '/webtv-bg/bg5.png' },
+                                    { n: 6, label: '🏢 Kurumsal', path: '/webtv-bg/bg6.png' },
+                                    { n: 7, label: '🌌 Uzay', path: '/webtv-bg/bg7.png' },
+                                    { n: 8, label: '🌿 Doğa', path: '/webtv-bg/bg8.png' },
+                                    { n: 9, label: '✨ Lüks Altın', path: '/webtv-bg/bg9.png' },
+                                  ].map(({ n, label, path }) => {
+                                    const isActive = recorder.webtvBg === path;
+                                    return (
+                                      <button key={n} title={label}
+                                        onClick={() => recorder.setWebtvBg(isActive ? null : path)}
+                                        className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-video ${isActive ? 'border-purple-400 shadow-lg shadow-purple-500/30 scale-105' : 'border-white/15 hover:border-white/40 hover:scale-102'}`}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={`${path}?v=2`} alt={label} className="w-full h-full object-cover" />
+                                        {isActive && (
+                                          <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                                            <span className="text-white text-[10px]">✓</span>
+                                          </div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               {recorder.webtvBg && (
-                                <p className="text-[10px] text-purple-300/60 mt-1 text-center">
-                                  {[null,'🏛️ Koyu Stüdyo','📺 Breaking News','💻 Teknoloji','🌃 İstanbul Gece','🌊 Mor Dalga','🏢 Kurumsal','🌌 Galaksi','🌿 Doğa','✨ Lüks Altın','🎨 Modern'][parseInt(recorder.webtvBg.match(/bg(\d+)/)?.[1]||'0')]} seçildi
+                                <p className="text-[10px] text-purple-300/60 mt-1 text-center font-medium">
+                                  {(() => {
+                                    const allBgs = [
+                                      { l: '📡 Haber Stüdyo', p: '/webtv-bg/studio1.jpg' },
+                                      { l: '🔵 Neon Lab', p: '/webtv-bg/studio2.jpg' },
+                                      { l: '🌆 Şehir Manzarası', p: '/webtv-bg/studio3.jpg' },
+                                      { l: '🎙️ Podcast Odası', p: '/webtv-bg/studio4.jpg' },
+                                      { l: '💜 Mor Gradyan', p: '/webtv-bg/studio5.jpg' },
+                                      { l: '🌌 Galaksi', p: '/webtv-bg/studio6.jpg' },
+                                      { l: '🏛️ Koyu Stüdyo', p: '/webtv-bg/bg1.png' },
+                                      { l: '📺 Breaking News', p: '/webtv-bg/bg2.png' },
+                                      { l: '💻 Teknoloji', p: '/webtv-bg/bg3.png' },
+                                      { l: '🌃 İstanbul Gece', p: '/webtv-bg/bg4.png' },
+                                      { l: '🌊 Mor Dalga', p: '/webtv-bg/bg5.png' },
+                                      { l: '🏢 Kurumsal', p: '/webtv-bg/bg6.png' },
+                                      { l: '🌌 Uzay', p: '/webtv-bg/bg7.png' },
+                                      { l: '🌿 Doğa', p: '/webtv-bg/bg8.png' },
+                                      { l: '✨ Lüks Altın', p: '/webtv-bg/bg9.png' },
+                                    ];
+                                    return allBgs.find(b => b.p === recorder.webtvBg)?.l || 'Özel Görsel';
+                                  })()} seçildi
                                 </p>
                               )}
 
@@ -973,6 +1221,13 @@ export default function Home() {
                                   ))}
                                 </div>
                               )}
+                            </div>
+                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/5">
+                              <span className="text-[11px] text-slate-400 font-semibold">🏛️ Haber Masası</span>
+                              <button onClick={() => recorder.setWithNewsDesk(v => !v)}
+                                className={`relative w-8 h-4 rounded-full transition-colors ${recorder.withNewsDesk ? 'bg-purple-600' : 'bg-white/15'}`}>
+                                <span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${recorder.withNewsDesk ? 'translate-x-4' : ''}`} />
+                              </button>
                             </div>
                           </div>
 
@@ -1082,11 +1337,14 @@ export default function Home() {
                         <Toggle active={recorder.showMouseHighlight} onToggle={() => recorder.setShowMouseHighlight(v => !v)} icon={<Mouse className="w-4 h-4" />} label="Mouse Highlight" />
                         {/* Key display */}
                         <Toggle active={recorder.showKeyDisplay} onToggle={() => recorder.setShowKeyDisplay(v => !v)} icon={<Keyboard className="w-4 h-4" />} label="Key Display" />
-                        {/* Background blur */}
+                        {/* Background removal/blur */}
                         {!recorder.audioOnly && recorder.withCam && (
-                          <Toggle active={recorder.withBgBlur} onToggle={() => recorder.setWithBgBlur(v => !v)} icon={<span className="text-sm">🌫️</span>} label="BG Blur" />
+                          <div className="flex flex-wrap gap-2">
+                            <Toggle active={recorder.withBgBlur} onToggle={() => recorder.setWithBgBlur(v => !v)} icon={<span className="text-sm">🌫️</span>} label="Bulanıklaştır" />
+                            <Toggle active={recorder.withVirtualStudio} onToggle={() => recorder.setWithVirtualStudio(v => !v)} icon={<span className="text-sm">👤</span>} label="AI Arka Planı Kaldır" accent="cyan" />
+                          </div>
                         )}
-                        {/* Virtual BG Image — works in all modes with webcam */}
+                        {/* Virtual BG Image picker */}
                         {!recorder.audioOnly && recorder.withCam && (
                           <VirtualBgPicker
                             value={recorder.webtvBg}
@@ -1340,11 +1598,15 @@ export default function Home() {
                     <>
                       <button id="btn-start-recording" onClick={() => { setLiveChapters([]); recorder.start(); }}
                         className="flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white font-bold text-lg shadow-xl shadow-purple-600/30 transition-all hover:scale-[1.03] active:scale-95">
-                        <Circle className="w-5 h-5 text-red-300" /> {recorder.audioOnly ? 'Start Recording Audio' : 'Start Recording'}
+                        <Circle className="w-5 h-5 text-red-300" /> {recorder.audioOnly ? t('startRecordingAudio', lang) : t('startRecording', lang)}
+                      </button>
+                      <button onClick={() => setShowPresets(true)}
+                        className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-white/5 hover:bg-purple-500/10 text-slate-300 hover:text-purple-300 font-bold border border-white/10 hover:border-purple-500/30 transition-all">
+                        <Zap className="w-5 h-5" /> {t('presets', lang)}
                       </button>
                       <button onClick={() => setShowUrlDialog(true)}
-                        className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-bold border border-white/10 transition-all">
-                        🌐 Sunum Modu Yükle
+                        className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-bold border border-white/10 transition-all">
+                        {t('presentationMode', lang)}
                       </button>
                     </>
                   )}
@@ -1395,21 +1657,30 @@ export default function Home() {
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <LayoutGrid className="w-5 h-5 text-purple-400" />
-                <h2 className="text-xl font-bold text-white">{activeFolder ? activeFolder : 'My Recordings'}</h2>
+                <h2 className="text-xl font-bold text-white">{activeFolder ? activeFolder : t('myRecordings', lang)}</h2>
                 {videos.length > 0 && (
                   <span className="px-2.5 py-0.5 rounded-full bg-purple-600/20 text-purple-300 text-xs font-semibold border border-purple-500/20">
                     {filteredVideos.length}{videos.length !== filteredVideos.length ? `/${videos.length}` : ''}
                   </span>
                 )}
               </div>
-              {videos.length > 0 && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input type="text" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
-                    className="bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-white text-sm placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-purple-500 w-48" />
-                  {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X className="w-3.5 h-3.5" /></button>}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {/* Batch mode toggle */}
+                {videos.length > 0 && (
+                  <button onClick={() => { setBatchMode(v => !v); setSelectedIds(new Set()); }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${batchMode ? 'bg-purple-600/20 border border-purple-500/40 text-purple-300' : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'}`}>
+                    <CheckSquare className="w-3.5 h-3.5" /> {batchMode ? (lang === 'tr' ? 'Seçim Modu' : 'Select Mode') : (lang === 'tr' ? 'Çoklu Seç' : 'Multi-Select')}
+                  </button>
+                )}
+                {videos.length > 0 && (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input type="text" placeholder={t('search', lang)} value={search} onChange={e => setSearch(e.target.value)}
+                      className="bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-white text-sm placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-purple-500 w-48" />
+                    {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X className="w-3.5 h-3.5" /></button>}
+                  </div>
+                )}
+              </div>
             </div>
 
             {allTags.length > 0 && (
@@ -1439,11 +1710,21 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredVideos.map((v, i) => (
-                  <VideoCard key={v.id} record={v} index={i} folders={folders}
-                    onClick={() => setSelectedVideo(v)}
-                    onDelete={e => handleDeleteFromList(v.id, e)}
-                    onMoveFolder={async (folder) => { await updateVideoFolder(v.id, folder || undefined); loadVideos(); }}
-                  />
+                  <div key={v.id} className="relative">
+                    {batchMode && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleBatchSelect(v.id); }}
+                        className={`absolute top-3 left-3 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedIds.has(v.id) ? 'bg-purple-600 border-purple-400 text-white' : 'bg-black/50 border-white/30 text-transparent hover:border-purple-400'}`}
+                      >
+                        {selectedIds.has(v.id) && <span className="text-xs font-bold">✓</span>}
+                      </button>
+                    )}
+                    <VideoCard record={v} index={i} folders={folders}
+                      onClick={() => batchMode ? toggleBatchSelect(v.id) : setSelectedVideo(v)}
+                      onDelete={e => handleDeleteFromList(v.id, e)}
+                      onMoveFolder={async (folder) => { await updateVideoFolder(v.id, folder || undefined); loadVideos(); }}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -1454,6 +1735,74 @@ export default function Home() {
       {selectedVideo && (
         <VideoPlayerModal record={selectedVideo} onClose={() => setSelectedVideo(null)}
           onDeleted={() => { setSelectedVideo(null); loadVideos(); }} onSaved={loadVideos} />
+      )}
+
+      {/* Preset Manager Modal */}
+      {showPresets && (
+        <PresetManager
+          lang={lang}
+          onLoadPreset={handleLoadPreset}
+          onSaveCurrentAsPreset={getCurrentConfig}
+          onClose={() => setShowPresets(false)}
+        />
+      )}
+
+      {/* Share Modal */}
+      {shareVideo && (
+        <ShareModal
+          lang={lang}
+          videoTitle={shareVideo.title}
+          cloudUrl={shareVideo.cloudUrl}
+          onClose={() => setShareVideo(null)}
+        />
+      )}
+
+      {/* Batch Toolbar */}
+      {batchMode && selectedIds.size > 0 && (
+        <BatchToolbar
+          lang={lang}
+          videos={filteredVideos}
+          selectedIds={selectedIds}
+          folders={folders}
+          onToggleSelect={toggleBatchSelect}
+          onSelectAll={() => setSelectedIds(new Set(filteredVideos.map(v => v.id)))}
+          onDeselectAll={() => setSelectedIds(new Set())}
+          onBatchDelete={handleBatchDelete}
+          onBatchExport={handleBatchExport}
+          onBatchMove={handleBatchMove}
+          onBatchTag={handleBatchTag}
+          onClose={() => { setBatchMode(false); setSelectedIds(new Set()); }}
+        />
+      )}
+
+      {/* PWA Install Banner */}
+      {showInstallBanner && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div className="glass rounded-2xl p-4 border border-purple-500/30 shadow-2xl shadow-purple-900/30 glow-purple max-w-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center shrink-0">
+                <Download className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-white font-bold text-sm mb-1">{t('installApp', lang)}</p>
+                <p className="text-slate-400 text-xs mb-3">{t('installDesc', lang)}</p>
+                <div className="flex gap-2">
+                  <button onClick={handleInstall}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all">
+                    {lang === 'tr' ? 'Yükle' : 'Install'}
+                  </button>
+                  <button onClick={() => setShowInstallBanner(false)}
+                    className="px-3 py-1.5 rounded-xl bg-white/5 text-slate-400 text-xs font-semibold hover:text-white transition-all">
+                    {lang === 'tr' ? 'Sonra' : 'Later'}
+                  </button>
+                </div>
+              </div>
+              <button onClick={() => setShowInstallBanner(false)} className="text-slate-600 hover:text-white p-1">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
