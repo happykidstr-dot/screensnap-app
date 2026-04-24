@@ -41,6 +41,7 @@ interface ISpeechRecognition {
 interface LiveCaptionsProps {
   isRecording: boolean;
   enabled: boolean;
+  onCaptionChange?: (text: string) => void;
 }
 
 interface CaptionLine {
@@ -48,7 +49,7 @@ interface CaptionLine {
   text: string;
 }
 
-export default function LiveCaptions({ isRecording, enabled }: LiveCaptionsProps) {
+export default function LiveCaptions({ isRecording, enabled, onCaptionChange }: LiveCaptionsProps) {
   const [captions, setCaptions] = useState<CaptionLine[]>([]);
   const [interim, setInterim] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -91,12 +92,14 @@ export default function LiveCaptions({ isRecording, enabled }: LiveCaptionsProps
               return next.slice(-3);
             });
             setInterim('');
+            onCaptionChange?.(txt);
           }
         } else {
           interimText += result[0].transcript;
         }
       }
       setInterim(interimText);
+      onCaptionChange?.(interimText || captions.map(c => c.text).slice(-1)[0] || '');
     };
 
     rec.onerror = (e) => {
@@ -118,6 +121,7 @@ export default function LiveCaptions({ isRecording, enabled }: LiveCaptionsProps
       setIsListening(false);
       setCaptions([]);
       setInterim('');
+      onCaptionChange?.('');
     }
     return () => {
       if (restartTimeout.current) clearTimeout(restartTimeout.current);
