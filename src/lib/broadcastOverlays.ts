@@ -284,14 +284,17 @@ export function drawCamBigScene(
     x: number,
     y: number,
     shape: WebcamShape,
-    color: string
+    ringColor: string,
+    bgImg: HTMLImageElement | null,
+    brandColor: string
   ) => void,
   webcamShape: WebcamShape,
   webcamRingColor: string,
-  bgImage: HTMLImageElement | null = null
+  bgImage: HTMLImageElement | null = null,
+  withNewsDesk: boolean = false
 ): void {
-  // Background: webtv bg image or gradient
-  if (bgImage) {
+  // Background: webtv bg image or gradient - ALWAYS SHOW THIS
+  if (bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
     const bw = bgImage.naturalWidth || w, bh = bgImage.naturalHeight || h;
     const bA = bw/bh, cA = w/h;
     let bsx=0,bsy=0,bsw=bw,bsh=bh;
@@ -300,16 +303,35 @@ export function drawCamBigScene(
   } else {
     const bg = ctx.createLinearGradient(0, 0, 0, h);
     bg.addColorStop(0, '#0d0b1e');
-    bg.addColorStop(1, '#1a1530');
+    bg.addColorStop(1, '#1b1433');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
   }
 
-  // Cam fills center — 65% of height
-  const camSize = Math.round(h * 0.65);
+  // Cam fills center
+  // If we have a desk, we need to position the anchor behind it nicely
+  const camSize = withNewsDesk ? Math.round(h * 0.78) : Math.round(h * 0.65);
   const camX = Math.round((w - camSize) / 2);
-  const camY = Math.round((h - camSize) / 2);
-  drawCamFn(ctx, camVid, camSize, camX, camY, webcamShape, webcamRingColor);
+  const camY = withNewsDesk ? Math.round(h * 0.18) : Math.round((h - camSize) / 2);
+
+  // Even if no camVid, at least keep UI state coherent
+  if (camVid) {
+    ctx.save();
+    // Masking: ensure cam is cut exactly where the desk starts
+    if (withNewsDesk) {
+      const deskTopY = h - Math.round(h * 0.22); // Match new desk height
+      ctx.beginPath();
+      ctx.rect(0, 0, w, deskTopY + 5); 
+      ctx.clip();
+    }
+    
+    // Exact Centering Logic for News Desk
+    const finalCamX = Math.round((w - camSize) / 2);
+    const finalCamY = withNewsDesk ? Math.round(h * 0.16) : Math.round((h - camSize) / 2);
+
+    drawCamFn(ctx, camVid, camSize, finalCamX, finalCamY, webcamShape, webcamRingColor, null, brandColor);
+    ctx.restore();
+  }
 
   // Screen PIP — bottom right, 28% of width
   const pipW = Math.round(w * 0.28);
@@ -333,6 +355,78 @@ export function drawCamBigScene(
   ctx.fillStyle = '#fff';
   ctx.textBaseline = 'middle';
   ctx.fillText('📺 EKRAN', pipX + 4, pipY - 8);
+
+  // ── News Desk Foreground (Layered look) ──
+  if (withNewsDesk) {
+     drawNewsDesk(ctx, w, h, brandColor);
+  }
+}
+
+/**
+ * Draws a modern news desk overlay to make user look like they are behind it
+ */
+export function drawNewsDesk(ctx: CanvasRenderingContext2D, w: number, h: number, brandColor: string) {
+  const deskH = Math.round(h * 0.22); // Slightly taller for better coverage
+  const deskW = Math.round(w * 0.72);
+  const dx = (w - deskW) / 2;
+  const dy = h - deskH; // Anchored to bottom, no gap
+
+  ctx.save();
+  
+  // 1. Shadows (Grounding the desk)
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 25;
+  ctx.shadowOffsetY = -5; // Shadow goes UP against the background
+
+  // 2. Main Desk Body (Rich 3D Surface - FULLY OPAQUE)
+  const mainGrad = ctx.createLinearGradient(dx, dy, dx, dy + deskH);
+  mainGrad.addColorStop(0, 'rgba(30, 35, 55, 1)'); // Top edge - Solid
+  mainGrad.addColorStop(0.1, 'rgba(20, 25, 40, 1)'); // Solid
+  mainGrad.addColorStop(0.5, 'rgba(10, 15, 30, 1)');     // Dark middle
+  mainGrad.addColorStop(1, 'rgba(25, 30, 45, 1)'); // Bottom
+  
+  ctx.fillStyle = mainGrad;
+  ctx.beginPath();
+  ctx.moveTo(dx, dy + 15);
+  ctx.quadraticCurveTo(dx, dy, dx + 40, dy); // Top-left rounded
+  ctx.lineTo(dx + deskW - 40, dy);
+  ctx.quadraticCurveTo(dx + deskW, dy, dx + deskW, dy + 15); // Top-right rounded
+  ctx.lineTo(dx + deskW - 20, dy + deskH);
+  ctx.lineTo(dx + 20, dy + deskH);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3. Brand Accent Strip (Refined)
+  ctx.shadowColor = brandColor;
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = brandColor;
+  ctx.fillRect(dx + 45, dy + 10, deskW - 90, 3);
+  ctx.shadowColor = 'transparent'; // Reset for next layers
+
+  // 4. Glass Reflection Overlay (The "StreamYard" shine)
+  const shine = ctx.createLinearGradient(dx, dy, dx + deskW, dy + deskH);
+  shine.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+  shine.addColorStop(0.4, 'rgba(255, 255, 255, 0)');
+  shine.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+  shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = shine;
+  ctx.fill();
+
+  // 5. Bezel / Highlight Edge
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 6. Bottom Metallic Rim
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.beginPath();
+  ctx.moveTo(dx + 20, dy + deskH - 8);
+  ctx.lineTo(dx + deskW - 20, dy + deskH - 8);
+  ctx.lineTo(dx + deskW - 22, dy + deskH);
+  ctx.lineTo(dx + 22, dy + deskH);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 // ─── KJ Queue draw helper ─────────────────────────────────────────────────────
@@ -434,3 +528,32 @@ export function drawScoreboard(
   ctx.fillText('VS', cx, y + barH / 2);
   ctx.restore();
 }
+
+/**
+ * AI Loading Badge - Shows when background removal is initialized
+ */
+export function drawAILoadingBadge(
+  ctx: CanvasRenderingContext2D,
+  _w: number,
+  _h: number
+): void {
+  ctx.save();
+  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+  const text = '⏳ AI Yükleniyor...';
+  const tw = ctx.measureText(text).width;
+  const bw = tw + 20; const bh = 22;
+  const bx = _w - bw - 14;
+  const by = 14;
+
+  ctx.fillStyle = 'rgba(234,179,8,0.85)'; // Yellow-500
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx+0.5, by+0.5, bw-1, bh-1);
+
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, bx + 10, by + bh / 2);
+  ctx.restore();
+}
+

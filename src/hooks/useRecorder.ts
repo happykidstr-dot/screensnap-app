@@ -5,7 +5,7 @@ import { saveVideo, VideoRecord, TranscriptSegment, Chapter } from '@/lib/db';
 import { TranscriptRecorder } from '@/lib/transcript';
 import { BackgroundBlur } from '@/lib/bgBlur';
 import { drawFrame, FrameStyle, drawKJ } from '@/lib/videoFrame';
-import { drawTicker, drawClock, drawLiveBadge, drawIntroCard, drawCamBigScene, KJQueueItem, resetTickerOffset, drawScoreboard } from '@/lib/broadcastOverlays';
+import { drawTicker, drawClock, drawLiveBadge, drawAILoadingBadge, drawIntroCard, drawCamBigScene, KJQueueItem, resetTickerOffset, drawScoreboard } from '@/lib/broadcastOverlays';
 
 export type RecorderState = 'idle' | 'countdown' | 'recording' | 'paused' | 'saving';
 export type Quality = '480p' | '720p' | '1080p';
@@ -76,6 +76,9 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
   // ─── Webcam preview stream (for live monitor during recording) ────
   const [camPreviewStream, setCamPreviewStream] = useState<MediaStream | null>(null);
 
+  // ─── Live output stream as state (triggers re-render for live preview UI) ────
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+
 
   // ─── Audio Mixer ──────────────────────────────────────────────────
   const [micVolume, setMicVolume] = useState(100);       // 0-150
@@ -135,6 +138,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [withBgBlur, setWithBgBlur] = useState(false);
   const [withVirtualStudio, setWithVirtualStudio] = useState(false); // AI bg removal + studio image replace
+  const [withNewsDesk, setWithNewsDesk] = useState(false);
   const withVirtualStudioRef = useRef(false);
   useEffect(() => { withVirtualStudioRef.current = withVirtualStudio; }, [withVirtualStudio]);
 
@@ -297,6 +301,8 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
     screenStreamRef.current = null; camStreamRef.current = null;
     bgBlurRef.current?.destroy(); bgBlurRef.current = null;
     liveStreamRef.current = null;
+    setLiveStream(null);
+    setCamPreviewStream(null);
     setAudioLevel(0);
   }, []);
 
@@ -322,28 +328,62 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
     ctx: CanvasRenderingContext2D,
     camVid: HTMLVideoElement,
     camDiam: number, camX: number, camY: number,
-    shape: WebcamShape, ringColor: string
+    shape: WebcamShape, ringColor: string,
+    bgImage: HTMLImageElement | null = null,
+    brandColor: string = '#7c3aed'
   ) => {
     ctx.save();
+    
+    // External premium shadow for the person box (StreamYard look)
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetY = 4;
+
     ctx.beginPath();
     if (shape === 'circle') {
       ctx.arc(camX + camDiam / 2, camY + camDiam / 2, camDiam / 2, 0, Math.PI * 2);
-      ctx.clip();
     } else if (shape === 'rounded') {
       const r = camDiam * 0.18;
       if (ctx.roundRect) ctx.roundRect(camX, camY, camDiam, camDiam, r); else ctx.rect(camX, camY, camDiam, camDiam);
-      ctx.clip();
+    } else {
+      ctx.rect(camX, camY, camDiam, camDiam);
     }
+    ctx.clip();
+
+    // ── Draw studio background inside the Cam PiP if active ──
+    if (bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
+      const bw = bgImage.naturalWidth, bh = bgImage.naturalHeight;
+      const bMin = Math.min(bw, bh);
+      ctx.drawImage(bgImage, (bw-bMin)/2, (bh-bMin)/2, bMin, bMin, camX, camY, camDiam, camDiam);
+    }
+
     ctx.drawImage(camVid, camX, camY, camDiam, camDiam);
     ctx.restore();
-    // Ring
-    if (shape !== 'square') {
+
+    // ── StreamYard Style Brand Border ──
+    ctx.save();
+    ctx.beginPath();
+    if (shape === 'circle') {
+      ctx.arc(camX + camDiam / 2, camY + camDiam / 2, camDiam / 2 + 1, 0, Math.PI * 2);
+    } else if (shape === 'rounded') {
+      const r = camDiam * 0.18 + 1;
+      if (ctx.roundRect) ctx.roundRect(camX - 1, camY - 1, camDiam + 2, camDiam + 2, r); else ctx.rect(camX - 1, camY - 1, camDiam + 2, camDiam + 2);
+    } else {
+      ctx.rect(camX - 1, camY - 1, camDiam + 2, camDiam + 2);
+    }
+    ctx.strokeStyle = brandColor;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // Ring (Optional highlight)
+    if (shape !== 'square' && ringColor !== 'transparent') {
       ctx.save();
       ctx.beginPath();
-      if (shape === 'circle') ctx.arc(camX + camDiam / 2, camY + camDiam / 2, camDiam / 2 + 2, 0, Math.PI * 2);
-      else { const r = camDiam * 0.18 + 2; if (ctx.roundRect) ctx.roundRect(camX - 2, camY - 2, camDiam + 4, camDiam + 4, r); else ctx.rect(camX - 2, camY - 2, camDiam + 4, camDiam + 4); }
-      ctx.strokeStyle = ringColor;
-      ctx.lineWidth = 4;
+      if (shape === 'circle') ctx.arc(camX + camDiam / 2, camY + camDiam / 2, camDiam / 2 + 3, 0, Math.PI * 2);
+      else { const r = camDiam * 0.18 + 3; if (ctx.roundRect) ctx.roundRect(camX - 3, camY - 3, camDiam + 6, camDiam + 6, r); else ctx.rect(camX - 3, camY - 3, camDiam + 6, camDiam + 6); }
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
       ctx.stroke();
       ctx.restore();
     }
@@ -553,6 +593,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
         const audioTracks = withMic ? camStream.getAudioTracks() : [];
         const finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
         liveStreamRef.current = finalStream;
+        setLiveStream(finalStream);
 
         const hasAudio = withMic && camStream.getAudioTracks().length > 0;
         const mimeType = hasAudio
@@ -649,7 +690,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
             } else if (scene === 'cam-big' && sceneCamVid.readyState >= 2) {
               const vsReady = withVirtualStudioRef.current && bgBlurRef.current?.loaded;
               const activeCam = vsReady ? (bgBlurRef.current!.processFrame(sceneCamVid), bgBlurRef.current!.resultCanvas as unknown as HTMLVideoElement) : sceneCamVid;
-              drawCamBigScene(ctx2, outW2, outH2, null as any, activeCam, brandColor, drawCam, webcamShape, webcamRingColor, webtvBgImgRef.current);
+              drawCamBigScene(ctx2, outW2, outH2, null as any, activeCam, brandColor, drawCam, webcamShape, webcamRingColor, webtvBgImgRef.current, withNewsDesk);
             } else if (sceneCamStream && sceneCamVid.readyState >= 2) {
               const vsReady = withVirtualStudioRef.current && bgBlurRef.current?.loaded;
               if (vsReady && webtvBgImgRef.current) {
@@ -700,6 +741,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
 
         const finalStream2 = new MediaStream([...canvasStream2.getVideoTracks(), ...audioTracks2]);
         liveStreamRef.current = finalStream2;
+        setLiveStream(finalStream2);
         const hasAudio2 = audioTracks2.length > 0;
         const mimeType2 = hasAudio2 ? (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')?'video/webm;codecs=vp9,opus':'video/webm') : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':'video/webm');
         const bps2 = quality === '1080p' ? 8_000_000 : quality === '720p' ? 5_000_000 : 2_500_000;
@@ -833,16 +875,29 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
           const camSize = Math.round(outH * 0.78);
           const camX = Math.round((outW - camSize) / 2);
           const camY = Math.round((outH - camSize) / 2);
-          if (withBgBlur && bgBlurRef.current?.loaded) {
+          if (withVirtualStudio && bgBlurRef.current?.loaded) {
+            bgBlurRef.current.processFrameTransparent(camVid);
+            drawCam(ctx, bgBlurRef.current.resultCanvas as unknown as HTMLVideoElement, camSize, camX, camY, webcamShape, webcamRingColor, webtvBgImgRef.current, brandColor);
+          } else if (withBgBlur && bgBlurRef.current?.loaded) {
             bgBlurRef.current.processFrame(camVid);
-            drawCam(ctx, bgBlurRef.current.resultCanvas as unknown as HTMLVideoElement, camSize, camX, camY, webcamShape, webcamRingColor);
+            drawCam(ctx, bgBlurRef.current.resultCanvas as unknown as HTMLVideoElement, camSize, camX, camY, webcamShape, webcamRingColor, webtvBgImgRef.current, brandColor);
           } else {
-            drawCam(ctx, camVid, camSize, camX, camY, webcamShape, webcamRingColor);
+            drawCam(ctx, camVid, camSize, camX, camY, webcamShape, webcamRingColor, webtvBgImgRef.current, brandColor);
           }
         } else if (scene === 'cam-big' && camVid) {
-          const vsReady = withVirtualStudioRef.current && bgBlurRef.current?.loaded;
-          const activeCam = vsReady ? (bgBlurRef.current!.processFrame(camVid), bgBlurRef.current!.resultCanvas as unknown as HTMLVideoElement) : camVid;
-          drawCamBigScene(ctx, outW, outH, screenVid, activeCam, brandColor, drawCam, webcamShape, webcamRingColor, webtvBgImgRef.current);
+          const vsReady = withVirtualStudio && bgBlurRef.current?.loaded;
+          if (vsReady) {
+            bgBlurRef.current!.processFrameTransparent(camVid);
+          }
+          const activeCam = (vsReady && bgBlurRef.current?.resultCanvas) 
+            ? (bgBlurRef.current!.resultCanvas as unknown as HTMLVideoElement) 
+            : camVid;
+          
+          drawCamBigScene(ctx, outW, outH, screenVid, activeCam, brandColor, drawCam, webcamShape, webcamRingColor, webtvBgImgRef.current, withNewsDesk);
+          
+          if (withVirtualStudio && !vsReady) {
+            drawAILoadingBadge(ctx, outW, outH);
+          }
         } else {
           // ── Default 'screen' scene: screen fills canvas, cam PiP corner
           const srcAspect = screenVid.videoWidth / (screenVid.videoHeight || 1);
@@ -863,11 +918,15 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
           if (camVid && withCam) {
             const { camX, camY } = getCamXY();
             const camDiam = liveCamDiamRef.current;
-            if (withBgBlur && bgBlurRef.current?.loaded) {
+            const vsReady = withVirtualStudio && bgBlurRef.current?.loaded;
+            if (vsReady) {
+              bgBlurRef.current!.processFrameTransparent(camVid);
+              drawCam(ctx, bgBlurRef.current!.resultCanvas as unknown as HTMLVideoElement, camDiam, camX, camY, webcamShape, webcamRingColor, webtvBgImgRef.current, brandColor);
+            } else if (withBgBlur && bgBlurRef.current?.loaded) {
               bgBlurRef.current.processFrame(camVid);
-              drawCam(ctx, bgBlurRef.current.resultCanvas as unknown as HTMLVideoElement, camDiam, camX, camY, webcamShape, webcamRingColor);
+              drawCam(ctx, bgBlurRef.current.resultCanvas as unknown as HTMLVideoElement, camDiam, camX, camY, webcamShape, webcamRingColor, webtvBgImgRef.current, brandColor);
             } else {
-              drawCam(ctx, camVid, camDiam, camX, camY, webcamShape, webcamRingColor);
+              drawCam(ctx, camVid, camDiam, camX, camY, webcamShape, webcamRingColor, webtvBgImgRef.current, brandColor);
             }
           }
         }
@@ -1000,12 +1059,29 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
       const canvasStream = canvas.captureStream(preset.fps);
       const finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
       liveStreamRef.current = finalStream; // expose for live sharing
+      setLiveStream(finalStream); // expose as state for live preview UI
 
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') ? 'video/webm;codecs=vp8,opus' : 'video/webm';
-      const bps = quality === '1080p' ? 8_000_000 : quality === '720p' ? 5_000_000 : 2_500_000;
-      const recorder = new MediaRecorder(finalStream, { mimeType, videoBitsPerSecond: bps });
+      // Optimized MIME type selection for consistent recording
+      const mimeTypes = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4'
+      ];
+      const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+      
+      const bps = quality === '1080p' ? 8_000_000 : quality === '720p' ? 4_500_000 : 2_000_000;
+      const recorder = new MediaRecorder(finalStream, { 
+        mimeType, 
+        videoBitsPerSecond: bps 
+      });
       mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      
+      recorder.ondataavailable = e => { 
+        if (e.data && e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
+      };
 
       recorder.onstop = async () => {
         if (rafRef.current) { clearInterval(rafRef.current); rafRef.current = null; }
@@ -1028,7 +1104,14 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
         if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop();
       });
 
-      recorder.start(250); setState('recording'); startTimer(0);
+      // Start recording with a small delay to ensure stream stability
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+          mediaRecorderRef.current.start(250); // smaller chunks for safety
+          setState('recording'); 
+          startTimer(0);
+        }
+      }, 200);
 
       if (autoStopMinutes > 0) {
         autoStopTimerRef.current = setTimeout(() => { if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop(); }, autoStopMinutes * 60_000);
@@ -1065,7 +1148,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
   }, [stopAllStreams]);
 
   return {
-    state, countdown, elapsed, audioLevel,
+    state, countdown, elapsed, audioLevel, liveStream,
     withCam, setWithCam, withMic, setWithMic,
     withSystemAudio, setWithSystemAudio,
     audioOnly, setAudioOnly,
@@ -1102,6 +1185,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
     withBgBlur, setWithBgBlur,
     vsModelReady, vsModelError,
     withVirtualStudio, setWithVirtualStudio,
+    withNewsDesk, setWithNewsDesk,
     frameStyle, setFrameStyle,
     logoWatermark, setLogoWatermark,
     logoPosition, setLogoPosition,
@@ -1115,7 +1199,15 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
     kjDuration, setKjDuration,
     kjQueue, setKjQueue,
     broadcastScene,
-    setBroadcastScene: (scene: BroadcastScene) => { triggerSceneTransition(); setBroadcastScene(scene); },
+    setBroadcastScene: (scene: BroadcastScene) => { 
+      triggerSceneTransition(); 
+      setBroadcastScene(scene);
+      // Stüdyo sahnelerinde arka planı tamamen silmeyi (transparent) otomatik aktif et
+      if (scene === 'cam-only' || scene === 'cam-big') {
+        setWithBgBlur(true);
+        setWithVirtualStudio(true); 
+      }
+    },
     tickerEnabled, setTickerEnabled,
     tickerText, setTickerText,
     tickerSpeed, setTickerSpeed,
@@ -1136,6 +1228,7 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
       isCancellingRef.current = true;
       stopTimer();
       setCamPreviewStream(null);
+      setLiveStream(null);
       if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop();
       else { stopAllStreams(); setState('idle'); setElapsed(0); }
     }, [stopAllStreams]),

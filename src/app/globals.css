@@ -79,3 +79,35 @@ body {
 .blink {
   animation: blink 1s step-start infinite;
 }
+
+/* Slide up animation for batch toolbar */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+/* Shine effect for preset cards */
+@keyframes shine {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shine-effect {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shine 3s ease-in-out infinite;
+}
+
+/* Pulse glow for install banner */
+@keyframes glow-purple {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(124,58,237,0.3); }
+  50% { box-shadow: 0 0 20px 6px rgba(124,58,237,0.5); }
+}
+
+.glow-purple {
+  animation: glow-purple 2s ease-in-out infinite;
+}

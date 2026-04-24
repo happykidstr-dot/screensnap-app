@@ -17,12 +17,15 @@ export default function VirtualBgPicker({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const presets = [
-    { emoji: 'Studio', path: '/webtv-bg/bg1.png' },
-    { emoji: 'News',   path: '/webtv-bg/bg2.png' },
-    { emoji: 'Tech',   path: '/webtv-bg/bg3.png' },
-    { emoji: 'Night',  path: '/webtv-bg/bg4.png' },
-    { emoji: 'Galaxy', path: '/webtv-bg/bg7.png' },
-    { emoji: 'Office', path: '/webtv-bg/bg6.png' },
+    { name: 'Office Modern', path: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Gradient Blue', path: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Minimal Studio', path: 'https://images.unsplash.com/photo-1582192732843-fbca5ff9c2d1?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Tech Loft', path: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Space Neon', path: 'https://images.unsplash.com/photo-1516339901600-af13a73858a5?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Cyber Studio', path: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'News Room', path: 'https://images.unsplash.com/photo-1595760780346-f972eb4c7096?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Galaxy', path: '/webtv-bg/bg7.png' },
+    { name: 'Office V1', path: '/webtv-bg/bg6.png' },
   ];
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,13 +54,13 @@ export default function VirtualBgPicker({
       </button>
 
       {open && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-64 bg-slate-900 border border-white/10 rounded-2xl p-3 shadow-2xl space-y-3">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-72 bg-slate-900 border border-white/10 rounded-2xl p-3 shadow-2xl space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-white">Sanal Arka Plan</p>
             <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white text-xs">X</button>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5 h-64 overflow-y-auto pr-1">
             {/* None / Off */}
             <button
               onClick={() => { onChange(null); onVirtualStudio(false); }}
@@ -77,8 +80,8 @@ export default function VirtualBgPicker({
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.path} alt={p.emoji} className="w-full h-10 object-cover rounded-lg" />
-                <span className="text-[9px] text-slate-300">{p.emoji}</span>
+                <img src={p.path} alt={p.name} className="w-full h-10 object-cover rounded-lg" />
+                <span className="text-[8px] text-slate-400 truncate w-full">{p.name}</span>
               </button>
             ))}
           </div>
@@ -107,7 +110,7 @@ export default function VirtualBgPicker({
                 <p className="text-[9px] text-slate-500 leading-tight">Gercek arka plani MediaPipe ile sil</p>
               </div>
               <button
-                onClick={() => { onVirtualStudio(v => !v); if (!value) onChange('/webtv-bg/bg1.png'); }}
+                onClick={() => { onVirtualStudio(v => !v); if (!value) onChange(presets[0].path); }}
                 className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${virtualStudio ? 'bg-emerald-500' : 'bg-white/15'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${virtualStudio ? 'translate-x-4' : ''}`} />

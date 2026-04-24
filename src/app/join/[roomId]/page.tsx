@@ -12,6 +12,8 @@ export default function JoinPage({ params }: { params: Promise<{ roomId: string 
   const peerRef = useRef<import('peerjs').Peer | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
+  const [hostStream, setHostStream] = useState<MediaStream | null>(null);
+
   const pad = (n: number) => n.toString().padStart(2, '0');
 
   const startGuest = async () => {
@@ -23,10 +25,6 @@ export default function JoinPage({ params }: { params: Promise<{ roomId: string 
         audio: { echoCancellation: true, noiseSuppression: true },
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(() => {});
-      }
 
       const { Peer } = await import('peerjs');
       const peer = new Peer({
@@ -38,14 +36,12 @@ export default function JoinPage({ params }: { params: Promise<{ roomId: string 
       peerRef.current = peer;
 
       peer.on('open', (myId) => {
-        // Connect to host using their room ID, sending our stream
-        // Encode guest name into connection metadata
         const call = peer.call(roomId, stream, {
           metadata: { guestName: guestName.trim(), guestId: myId },
         });
-        call.on('stream', () => {
-          // Host answered — we're connected
+        call.on('stream', (remoteStream) => {
           setStatus('connected');
+          setHostStream(remoteStream);
           let secs = 0;
           const iv = setInterval(() => setDuration(++secs), 1000);
           call.on('close', () => { setStatus('error'); setError('Host bağlantıyı kapattı.'); clearInterval(iv); });
@@ -148,27 +144,37 @@ export default function JoinPage({ params }: { params: Promise<{ roomId: string 
 
         {/* Connected */}
         {status === 'connected' && (
-          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/5 p-8 flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <span className="text-3xl">✅</span>
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/5 p-6 flex flex-col items-center gap-4 relative overflow-hidden">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-emerald-300 font-black text-lg">Yayındasınız</p>
             </div>
-            <div className="text-center">
-              <p className="text-emerald-300 font-black text-xl">Yayındasınız!</p>
-              <p className="text-slate-400 text-sm mt-1">
-                {pad(Math.floor(duration / 60))}:{pad(duration % 60)} süredir bağlısınız
-              </p>
-            </div>
-            <div className="relative rounded-2xl overflow-hidden bg-black w-full aspect-video border border-emerald-500/20">
-              <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
-              <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/80 text-white text-[10px] font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> CANLI
+            
+            {/* Host Broadcast Stream */}
+            <div className="relative rounded-2xl overflow-hidden bg-black w-full aspect-video border-2 border-emerald-500/50 shadow-lg shadow-emerald-500/20">
+              <video 
+                ref={el => { if (el && hostStream) el.srcObject = hostStream; }} 
+                autoPlay muted playsInline 
+                className="w-full h-full object-contain bg-black" 
+              />
+              <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
+                Stüdyo Canlı Yayın
               </div>
-              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-xs font-semibold">
-                {guestName}
+              
+              {/* Local PiP */}
+              <div className="absolute bottom-3 right-3 w-1/4 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
+                 <video 
+                   ref={el => { if (el && localStreamRef.current) el.srcObject = localStreamRef.current; }}
+                   autoPlay muted playsInline 
+                   className="w-full h-full object-cover" 
+                   style={{ transform: 'scaleX(-1)' }} 
+                 />
+                 <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/70 rounded text-[9px] text-white">Siz</div>
               </div>
             </div>
-            <p className="text-slate-500 text-xs text-center">
-              Kameranız ve sesiniz host'a aktarılıyor.<br/>Bu pencereyi kapatmayın.
+            <p className="text-slate-500 text-xs text-center mt-2">
+              {pad(Math.floor(duration / 60))}:{pad(duration % 60)} süredir bağlısınız.<br/>
+              Kameranız ve sesiniz host'a aktarılıyor.
             </p>
           </div>
         )}

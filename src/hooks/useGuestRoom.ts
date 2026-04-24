@@ -10,6 +10,7 @@ export interface GuestSlot {
   /** 'webrtc' = remote peer via PeerJS, 'external' = local window capture */
   source?: 'webrtc' | 'external';
   platform?: 'zoom' | 'meet' | 'teams' | 'webex' | 'other';
+  call?: import('peerjs').MediaConnection;
 }
 
 export interface UseGuestRoomReturn {
@@ -39,22 +40,52 @@ const PLATFORM_META: Record<string, { label: string; color: string }> = {
   other: { label: 'Harici Kanal', color: '#a855f7' },
 };
 
-export function useGuestRoom(): UseGuestRoomReturn {
+export function useGuestRoom(liveStream?: MediaStream | null): UseGuestRoomReturn {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [guests, setGuests] = useState<GuestSlot[]>([]);
   const [isRoomOpen, setIsRoomOpen] = useState(false);
 
   const peerRef = useRef<import('peerjs').Peer | null>(null);
   const guestCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dummyStreamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
 
-  // Initialize offscreen guest composite canvas
+  // Initialize offscreen guest composite canvas and a dummy stream for answering
   useEffect(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 1280;
     canvas.height = 720;
     guestCanvasRef.current = canvas;
+
+    const dummyCanvas = document.createElement('canvas');
+    dummyCanvas.width = 1280; dummyCanvas.height = 720;
+    const ctx = dummyCanvas.getContext('2d')!;
+    ctx.fillStyle = '#0f0d1e'; ctx.fillRect(0,0,1280,720);
+    ctx.fillStyle = '#ffffff'; ctx.font = '30px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Yayın bekleniyor veya henüz başlamadı...', 640, 360);
+    dummyStreamRef.current = dummyCanvas.captureStream(5);
   }, []);
+
+  // Update peer connections when liveStream changes
+  useEffect(() => {
+    const activeStream = liveStream || dummyStreamRef.current;
+    if (!activeStream) return;
+    const videoTrack = activeStream.getVideoTracks()[0];
+    const audioTrack = activeStream.getAudioTracks()[0];
+    guests.forEach(g => {
+      if (g.source === 'webrtc' && g.call?.peerConnection) {
+        const senders = g.call.peerConnection.getSenders();
+        if (videoTrack) {
+           const vSender = senders.find(s => s.track && s.track.kind === 'video');
+           if (vSender) vSender.replaceTrack(videoTrack).catch(()=>{});
+        }
+        if (audioTrack) {
+           const aSender = senders.find(s => s.track && s.track.kind === 'audio');
+           if (aSender) aSender.replaceTrack(audioTrack).catch(()=>{});
+        }
+      }
+    });
+  }, [liveStream, guests]);
 
   // ─── WebRTC Guest Room ────────────────────────────────────────────────────────
   const openRoom = useCallback(async () => {
@@ -79,8 +110,9 @@ export function useGuestRoom(): UseGuestRoomReturn {
         return prev;
       });
 
-      // Answer with empty stream so guest knows we're connected
-      call.answer(new MediaStream());
+      // Answer with the current live stream or the dummy stream so the guest sees our broadcast
+      const answerStream = liveStream || dummyStreamRef.current || new MediaStream();
+      call.answer(answerStream);
 
       call.on('stream', (remoteStream) => {
         const meta = call.metadata as { guestName?: string; guestId?: string } | null;
@@ -95,7 +127,7 @@ export function useGuestRoom(): UseGuestRoomReturn {
         vid.play().catch(() => {});
 
         const slot: GuestSlot = {
-          id: guestId, name: guestName, stream: remoteStream, videoEl: vid, source: 'webrtc',
+          id: guestId, name: guestName, stream: remoteStream, videoEl: vid, source: 'webrtc', call,
         };
         setGuests(prev => {
           if (prev.length >= MAX_GUESTS) return prev;
@@ -196,66 +228,125 @@ export function useGuestRoom(): UseGuestRoomReturn {
     if (guestList.length === 0) return;
 
     const count = guestList.length;
-    const cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
-    const rows = Math.ceil(count / cols);
-    const cellW = w / cols;
-    const cellH = h / rows;
+    // Calculate an elegant floating layout inside the provided bounds
+    // We'll organize them as a horizontal row aligned to the right (default for bottom-bar bounds)
+    // or if the bounds are tall, as a vertical column.
+    const isLandscape = w > h;
+    const padding = Math.max(8, Math.round(Math.min(w, h) * 0.05));
+    
+    let cols = 1, rows = 1;
+    if (isLandscape) {
+      cols = count;
+      rows = 1;
+    } else {
+      cols = 1;
+      rows = count;
+    }
+
+    const availableW = w - (cols - 1) * padding;
+    const availableH = h - (rows - 1) * padding;
+    
+    let cellW = availableW / cols;
+    let cellH = availableH / rows;
+
+    // Enforce 16:9 aspect ratio for each guest pip
+    const pipAspect = 16 / 9;
+    if (cellW / cellH > pipAspect) {
+      cellW = cellH * pipAspect;
+    } else {
+      cellH = cellW / pipAspect;
+    }
+
+    // Determine starting points to align the whole grid (e.g. to the right/bottom)
+    const totalGridW = cols * cellW + (cols - 1) * padding;
+    const totalGridH = rows * cellH + (rows - 1) * padding;
+    
+    const startX = x + (w - totalGridW); // Align right
+    const startY = y + (h - totalGridH) / 2; // Center vertically
 
     guestList.forEach((guest, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const cx = x + col * cellW;
-      const cy = y + row * cellH;
+      const col = isLandscape ? i : 0;
+      const row = isLandscape ? 0 : i;
+      
+      const cx = startX + col * (cellW + padding);
+      const cy = startY + row * (cellH + padding);
       const vid = guest.videoEl;
 
       const platformColor = guest.platform
         ? (PLATFORM_META[guest.platform]?.color ?? '#a855f7')
         : null;
 
+      ctx.save();
+      
+      // Shadow and rounded clip
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 4;
+      
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(cx, cy, cellW, cellH, 8);
+      } else {
+        ctx.rect(cx, cy, cellW, cellH);
+      }
+      ctx.fillStyle = '#0f0d1e';
+      ctx.fill();
+      ctx.clip();
+      ctx.shadowBlur = 0; // Disable shadow for inner drawing
+
       // ── Draw video frame ──
       if (vid.readyState >= 2 && vid.videoWidth > 0) {
         const vAspect = vid.videoWidth / vid.videoHeight;
         const cAspect = cellW / cellH;
         let sx = 0, sy = 0, sw = vid.videoWidth, sh = vid.videoHeight;
+        
+        // crop to fill
         if (vAspect > cAspect) { sw = sh * cAspect; sx = (vid.videoWidth - sw) / 2; }
         else { sh = sw / cAspect; sy = (vid.videoHeight - sh) / 2; }
         ctx.drawImage(vid, sx, sy, sw, sh, cx, cy, cellW, cellH);
       } else {
-        // Placeholder while loading
-        ctx.fillStyle = '#0f0d1e';
-        ctx.fillRect(cx, cy, cellW, cellH);
         ctx.fillStyle = '#ffffff40';
-        ctx.font = `${cellH * 0.22}px sans-serif`;
+        ctx.font = `${cellH * 0.3}px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(guest.source === 'external' ? '📡' : '📹', cx + cellW / 2, cy + cellH * 0.5);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(guest.source === 'external' ? '📡' : '📹', cx + cellW / 2, cy + cellH / 2);
       }
 
       // ── Platform colored top bar (external only) ──
       if (guest.source === 'external' && platformColor) {
-        const barH = Math.max(4, cellH * 0.03);
+        const barH = Math.max(4, cellH * 0.04);
         ctx.fillStyle = platformColor;
         ctx.fillRect(cx, cy, cellW, barH);
       }
 
-      // ── Cell border ──
-      ctx.strokeStyle = platformColor ? platformColor + '55' : '#ffffff15';
-      ctx.lineWidth = guest.source === 'external' ? 2 : 1;
-      ctx.strokeRect(cx, cy, cellW, cellH);
+      ctx.restore();
+
+      // ── Cell border (over clip) ──
+      ctx.save();
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cx, cy, cellW, cellH, 8);
+      else ctx.rect(cx, cy, cellW, cellH);
+      ctx.strokeStyle = platformColor ? platformColor + 'cc' : 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = guest.source === 'external' ? 3 : 1;
+      ctx.stroke();
+      ctx.restore();
 
       // ── Name badge ──
-      const badgeH = Math.max(18, cellH * 0.09);
+      const badgeH = Math.max(20, cellH * 0.12);
       ctx.fillStyle = guest.source === 'external' && platformColor
-        ? platformColor + 'dd'
-        : 'rgba(0,0,0,0.65)';
+        ? platformColor + 'ee'
+        : 'rgba(0,0,0,0.7)';
       const badgeY = cy + cellH - badgeH - 6;
       ctx.beginPath();
-      ctx.roundRect?.(cx + 6, badgeY, cellW - 12, badgeH, 4);
+      if (ctx.roundRect) ctx.roundRect(cx + 6, badgeY, cellW - 12, badgeH, 4);
+      else ctx.rect(cx + 6, badgeY, cellW - 12, badgeH);
       ctx.fill();
 
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.max(10, badgeH * 0.58)}px sans-serif`;
+      ctx.font = `bold ${Math.max(10, badgeH * 0.55)}px sans-serif`;
       ctx.textAlign = 'left';
-      ctx.fillText(guest.name, cx + 12, cy + cellH - 10);
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(guest.name, cx + 12, cy + cellH - 12);
     });
   }, [guests]);
 
