@@ -24,6 +24,7 @@ import PresetManager from '@/components/PresetManager';
 import BatchToolbar from '@/components/BatchToolbar';
 import SignLanguagePanel from '@/components/SignLanguagePanel';
 import ShareModal from '@/components/ShareModal';
+import LiveCaptions from '@/components/LiveCaptions';
 import {
   Monitor, Camera, Mic, MicOff, CameraOff, MonitorOff,
   Square, Pause, Play, Circle, Trash2, Clock,
@@ -56,6 +57,7 @@ export default function Home() {
   const [showGuestPanel, setShowGuestPanel] = useState(false);
   const [copiedGuestLink, setCopiedGuestLink] = useState(false);
   const [showSignLanguage, setShowSignLanguage] = useState(false);
+  const [showCaptions, setShowCaptions] = useState(false);
   
   // ─── i18n ───
   const [lang, setLang] = useState<Lang>('tr');
@@ -310,6 +312,50 @@ export default function Home() {
 
       {/* ── Sign Language Panel ── */}
       {showSignLanguage && <SignLanguagePanel onClose={() => setShowSignLanguage(false)} />}
+
+      {/* ── Live Captions ── */}
+      <LiveCaptions isRecording={recorder.state === 'recording'} enabled={showCaptions} />
+
+      {/* ── Live Captions Toggle Button ── */}
+      <button
+        id="btn-live-captions"
+        onClick={() => setShowCaptions(v => !v)}
+        title="Canlı Altyazı (kayıt sırasında konuşmanızı altyazıya çevirir)"
+        style={{
+          position: 'fixed',
+          bottom: '100px',
+          left: '24px',
+          zIndex: 60,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 16px',
+          borderRadius: '14px',
+          background: showCaptions
+            ? 'linear-gradient(135deg, #065f46, #0f766e)'
+            : 'rgba(30,30,40,0.85)',
+          boxShadow: showCaptions ? '0 6px 24px rgba(16,185,129,0.4)' : '0 4px 16px rgba(0,0,0,0.4)',
+          border: showCaptions ? '1px solid rgba(52,211,153,0.5)' : '1px solid rgba(255,255,255,0.1)',
+          color: 'white',
+          fontWeight: 700,
+          fontSize: '13px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          backdropFilter: 'blur(8px)',
+        }}
+        onMouseOver={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)'; }}
+        onMouseOut={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+      >
+        <span style={{ fontSize: '16px' }}>CC</span>
+        <span>{showCaptions ? 'Altyazı Açık' : 'Altyazı'}</span>
+        {showCaptions && recorder.state === 'recording' && (
+          <span style={{
+            width: '8px', height: '8px', borderRadius: '50%',
+            background: '#34d399',
+            display: 'inline-block',
+          }} />
+        )}
+      </button>
 
       {/* ── Floating Sign Language Button ── */}
       <button
