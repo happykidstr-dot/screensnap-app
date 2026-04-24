@@ -135,7 +135,7 @@ export default function SignLanguageAvatar() {
   }, [isOpen, extractedText.length]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (isPlaying && extractedText.length > 0) {
       interval = setInterval(() => {
         if (currentSentenceIndex < extractedText.length) {
