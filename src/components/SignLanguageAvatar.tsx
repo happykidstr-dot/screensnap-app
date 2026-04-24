@@ -35,27 +35,79 @@ function SignAvatar({ isPlaying }: { isPlaying: boolean }) {
       <path d="M87 78 Q91 76 95 78" fill="none" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round" />
       <path d="M105 78 Q109 76 113 78" fill="none" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round" />
 
-      <g style={{ transformOrigin: '75px 125px', animation: isPlaying ? 'leftArm 1.6s ease-in-out infinite alternate' : 'none' }}>
-        <rect x="55" y="115" width="22" height="12" rx="6" fill="#4f46e5" />
-        <g style={{ transformOrigin: '55px 122px', animation: isPlaying ? 'leftHand 1.6s ease-in-out infinite alternate' : 'none' }}>
-          <ellipse cx="48" cy="135" rx="11" ry="9" fill="#fbbf24" />
-          <rect x="38" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
-          <rect x="44" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
-          <rect x="50" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
-          <rect x="56" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
-          <ellipse cx="37" cy="137" rx="4" ry="3" fill="#f59e0b" transform="rotate(-30 37 137)" />
+      <g transform="translate(75, 125)">
+        <g>
+          {isPlaying && (
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              values="-20; 15; -30; 10; -20"
+              dur="1.6s"
+              repeatCount="indefinite"
+            />
+          )}
+          <g transform="translate(-75, -125)">
+            <rect x="55" y="115" width="22" height="12" rx="6" fill="#4f46e5" />
+            <g transform="translate(55, 122)">
+              <g>
+                {isPlaying && (
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    values="0; -40; 20; -15; 0"
+                    dur="1.6s"
+                    repeatCount="indefinite"
+                  />
+                )}
+                <g transform="translate(-55, -122)">
+                  <ellipse cx="48" cy="135" rx="11" ry="9" fill="#fbbf24" />
+                  <rect x="38" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
+                  <rect x="44" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
+                  <rect x="50" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
+                  <rect x="56" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
+                  <ellipse cx="37" cy="137" rx="4" ry="3" fill="#f59e0b" transform="rotate(-30 37 137)" />
+                </g>
+              </g>
+            </g>
+          </g>
         </g>
       </g>
 
-      <g style={{ transformOrigin: '125px 125px', animation: isPlaying ? 'rightArm 1.6s ease-in-out infinite alternate-reverse' : 'none' }}>
-        <rect x="123" y="115" width="22" height="12" rx="6" fill="#4f46e5" />
-        <g style={{ transformOrigin: '145px 122px', animation: isPlaying ? 'rightHand 1.6s ease-in-out infinite alternate-reverse' : 'none' }}>
-          <ellipse cx="152" cy="135" rx="11" ry="9" fill="#fbbf24" />
-          <rect x="157" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
-          <rect x="151" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
-          <rect x="145" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
-          <rect x="139" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
-          <ellipse cx="163" cy="137" rx="4" ry="3" fill="#f59e0b" transform="rotate(30 163 137)" />
+      <g transform="translate(125, 125)">
+        <g>
+          {isPlaying && (
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              values="20; -15; 25; -10; 20"
+              dur="1.6s"
+              repeatCount="indefinite"
+            />
+          )}
+          <g transform="translate(-125, -125)">
+            <rect x="123" y="115" width="22" height="12" rx="6" fill="#4f46e5" />
+            <g transform="translate(145, 122)">
+              <g>
+                {isPlaying && (
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    values="0; 40; -20; 15; 0"
+                    dur="1.6s"
+                    repeatCount="indefinite"
+                  />
+                )}
+                <g transform="translate(-145, -122)">
+                  <ellipse cx="152" cy="135" rx="11" ry="9" fill="#fbbf24" />
+                  <rect x="157" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
+                  <rect x="151" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
+                  <rect x="145" y="124" width="5" height="12" rx="2.5" fill="#f59e0b" />
+                  <rect x="139" y="126" width="5" height="10" rx="2.5" fill="#f59e0b" />
+                  <ellipse cx="163" cy="137" rx="4" ry="3" fill="#f59e0b" transform="rotate(30 163 137)" />
+                </g>
+              </g>
+            </g>
+          </g>
         </g>
       </g>
 
@@ -77,33 +129,6 @@ function SignAvatar({ isPlaying }: { isPlaying: boolean }) {
           </circle>
         </>
       )}
-
-      <style>{`
-        @keyframes leftArm {
-          0%   { transform: rotate(-20deg) translateY(0px); }
-          30%  { transform: rotate(15deg) translateY(-10px); }
-          60%  { transform: rotate(-30deg) translateY(5px); }
-          100% { transform: rotate(10deg) translateY(-5px); }
-        }
-        @keyframes rightArm {
-          0%   { transform: rotate(20deg) translateY(0px); }
-          30%  { transform: rotate(-15deg) translateY(-10px); }
-          60%  { transform: rotate(25deg) translateY(8px); }
-          100% { transform: rotate(-10deg) translateY(-3px); }
-        }
-        @keyframes leftHand {
-          0%   { transform: rotate(0deg); }
-          40%  { transform: rotate(-40deg); }
-          80%  { transform: rotate(20deg); }
-          100% { transform: rotate(-15deg); }
-        }
-        @keyframes rightHand {
-          0%   { transform: rotate(0deg); }
-          40%  { transform: rotate(40deg); }
-          80%  { transform: rotate(-20deg); }
-          100% { transform: rotate(15deg); }
-        }
-      `}</style>
     </svg>
   );
 }
@@ -116,6 +141,8 @@ export default function SignLanguageAvatar() {
   const [extractedText, setExtractedText] = useState<string[]>([]);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+
+  const sentenceIndexRef = useRef(0);
 
   useEffect(() => {
     if (isOpen && extractedText.length === 0) {
@@ -138,10 +165,12 @@ export default function SignLanguageAvatar() {
     let interval: any;
     if (isPlaying && extractedText.length > 0) {
       interval = setInterval(() => {
-        if (currentSentenceIndex < extractedText.length) {
-          setCurrentText(extractedText[currentSentenceIndex]);
-          setCurrentSentenceIndex(p => p + 1);
-          setProgress(Math.round(((currentSentenceIndex + 1) / extractedText.length) * 100));
+        if (sentenceIndexRef.current < extractedText.length) {
+          const nextIndex = sentenceIndexRef.current;
+          setCurrentText(extractedText[nextIndex]);
+          sentenceIndexRef.current += 1;
+          setCurrentSentenceIndex(sentenceIndexRef.current);
+          setProgress(Math.round((sentenceIndexRef.current / extractedText.length) * 100));
         } else {
           setIsPlaying(false);
           setCurrentText("Çeviri tamamlandı.");
@@ -149,13 +178,16 @@ export default function SignLanguageAvatar() {
         }
       }, 3200);
     }
-    return () => clearInterval(interval);
-  }, [isPlaying, extractedText, currentSentenceIndex]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying, extractedText]);
 
   const handleStart = () => {
     if (hasError) return;
     setIsPlaying(true);
-    if (currentSentenceIndex >= extractedText.length) {
+    if (sentenceIndexRef.current >= extractedText.length) {
+      sentenceIndexRef.current = 0;
       setCurrentSentenceIndex(0);
       setProgress(0);
     }
@@ -165,6 +197,7 @@ export default function SignLanguageAvatar() {
 
   const handleStop = () => {
     setIsPlaying(false);
+    sentenceIndexRef.current = 0;
     setCurrentSentenceIndex(0);
     setProgress(0);
     setCurrentText("Çeviri durduruldu. Tekrar başlatmak için Başlat butonuna basın.");
@@ -173,6 +206,7 @@ export default function SignLanguageAvatar() {
   const toggleOpen = () => {
     if (isOpen) {
       setIsPlaying(false);
+      sentenceIndexRef.current = 0;
       setCurrentSentenceIndex(0);
       setProgress(0);
     } else {
@@ -203,7 +237,7 @@ export default function SignLanguageAvatar() {
         <div
           id="sign-language-panel"
           className="fixed bottom-6 left-6 z-[9999] flex flex-col rounded-2xl overflow-hidden"
-          style={{ width: 'min(320px, calc(100vw - 48px))', boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)', background: '#0f0e1a' }}
+          style={{ width: '320px', maxWidth: 'calc(100vw - 48px)', boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)', background: '#0f0e1a' }}
         >
           <div className="flex items-center justify-between px-4 py-3" style={{ background: 'linear-gradient(90deg,#4338ca,#6d28d9)' }}>
             <div className="flex items-center gap-2">
