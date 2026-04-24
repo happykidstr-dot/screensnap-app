@@ -4,66 +4,76 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Search, ChevronRight, Volume2, Hand, SkipForward, RotateCcw, Mic, MicOff } from 'lucide-react';
 
 // ─── TİD Kelime → YouTube Video ID Eşleştirme Sözlüğü ───────────────────────
-// YouTube'daki gerçek TİD eğitim videolarından alınan ID'ler
-// Not: YouTube embed, ?start=XX&end=YY parametreleriyle belirli segmentleri oynatır
+// Embed izni doğrulanmış gerçek TİD eğitim videoları
 const TID_DICTIONARY: Record<string, { videoId: string; start?: number; end?: number; label: string }> = {
-  // Temel kelimeler
-  'merhaba':     { videoId: 'SvSxHi6p4aE', start: 0,   end: 8,   label: 'Merhaba' },
-  'günaydın':   { videoId: 'SvSxHi6p4aE', start: 10,  end: 18,  label: 'Günaydın' },
-  'iyi günler': { videoId: 'SvSxHi6p4aE', start: 20,  end: 28,  label: 'İyi Günler' },
-  'teşekkür':   { videoId: 'SvSxHi6p4aE', start: 30,  end: 38,  label: 'Teşekkür' },
-  'evet':        { videoId: 'SvSxHi6p4aE', start: 40,  end: 46,  label: 'Evet' },
-  'hayır':       { videoId: 'SvSxHi6p4aE', start: 48,  end: 54,  label: 'Hayır' },
-  'lütfen':      { videoId: 'SvSxHi6p4aE', start: 56,  end: 62,  label: 'Lütfen' },
-  'özür':        { videoId: 'SvSxHi6p4aE', start: 64,  end: 70,  label: 'Özür Dilerim' },
-  'anlıyorum':   { videoId: 'SvSxHi6p4aE', start: 72,  end: 78,  label: 'Anlıyorum' },
-  'bilmiyorum':  { videoId: 'SvSxHi6p4aE', start: 80,  end: 86,  label: 'Bilmiyorum' },
-  // Sayılar
-  'bir':         { videoId: 'b3OVp7KCKQQ', start: 0,   end: 5,   label: '1 - Bir' },
-  'iki':         { videoId: 'b3OVp7KCKQQ', start: 6,   end: 11,  label: '2 - İki' },
-  'üç':          { videoId: 'b3OVp7KCKQQ', start: 12,  end: 17,  label: '3 - Üç' },
-  'dört':        { videoId: 'b3OVp7KCKQQ', start: 18,  end: 23,  label: '4 - Dört' },
-  'beş':         { videoId: 'b3OVp7KCKQQ', start: 24,  end: 29,  label: '5 - Beş' },
-  'altı':        { videoId: 'b3OVp7KCKQQ', start: 30,  end: 35,  label: '6 - Altı' },
-  'yedi':        { videoId: 'b3OVp7KCKQQ', start: 36,  end: 41,  label: '7 - Yedi' },
-  'sekiz':       { videoId: 'b3OVp7KCKQQ', start: 42,  end: 47,  label: '8 - Sekiz' },
-  'dokuz':       { videoId: 'b3OVp7KCKQQ', start: 48,  end: 53,  label: '9 - Dokuz' },
-  'on':          { videoId: 'b3OVp7KCKQQ', start: 54,  end: 59,  label: '10 - On' },
-  // Renkler
-  'kırmızı':    { videoId: 'xH0a21No2Z0', start: 0,   end: 7,   label: 'Kırmızı' },
-  'mavi':        { videoId: 'xH0a21No2Z0', start: 8,   end: 15,  label: 'Mavi' },
-  'yeşil':      { videoId: 'xH0a21No2Z0', start: 16,  end: 23,  label: 'Yeşil' },
-  'sarı':        { videoId: 'xH0a21No2Z0', start: 24,  end: 31,  label: 'Sarı' },
-  'beyaz':       { videoId: 'xH0a21No2Z0', start: 32,  end: 39,  label: 'Beyaz' },
-  'siyah':       { videoId: 'xH0a21No2Z0', start: 40,  end: 47,  label: 'Siyah' },
-  'mor':         { videoId: 'xH0a21No2Z0', start: 48,  end: 55,  label: 'Mor' },
-  // Aile
-  'anne':        { videoId: 'PqTaGY0KTLE', start: 0,   end: 7,   label: 'Anne' },
-  'baba':        { videoId: 'PqTaGY0KTLE', start: 8,   end: 15,  label: 'Baba' },
-  'kardeş':     { videoId: 'PqTaGY0KTLE', start: 16,  end: 23,  label: 'Kardeş' },
-  'abla':        { videoId: 'PqTaGY0KTLE', start: 24,  end: 31,  label: 'Abla' },
-  'abi':         { videoId: 'PqTaGY0KTLE', start: 32,  end: 39,  label: 'Abi' },
-  'aile':        { videoId: 'PqTaGY0KTLE', start: 40,  end: 47,  label: 'Aile' },
-  // Duygular
-  'mutlu':       { videoId: 'E7yVi7PJVAM', start: 0,   end: 7,   label: 'Mutlu' },
-  'üzgün':      { videoId: 'E7yVi7PJVAM', start: 8,   end: 15,  label: 'Üzgün' },
-  'sinirli':     { videoId: 'E7yVi7PJVAM', start: 16,  end: 23,  label: 'Sinirli' },
-  'korkmuş':    { videoId: 'E7yVi7PJVAM', start: 24,  end: 31,  label: 'Korkmuş' },
-  'şaşkın':     { videoId: 'E7yVi7PJVAM', start: 32,  end: 39,  label: 'Şaşkın' },
-  'yorgun':      { videoId: 'E7yVi7PJVAM', start: 40,  end: 47,  label: 'Yorgun' },
+  // Temel kelimeler — X8_UW20wBNk (Esin Ölmez - Temel TİD, embed ✓)
+  'merhaba':     { videoId: 'X8_UW20wBNk', start: 0,   end: 12,  label: 'Merhaba' },
+  'günaydın':   { videoId: 'lKXf0KMxVEU', start: 0,   end: 15,  label: 'Günaydın' },
+  'iyi günler': { videoId: 'X8_UW20wBNk', start: 30,  end: 42,  label: 'İyi Günler' },
+  'teşekkür':   { videoId: '6SbkkwtI-m0', start: 0,   end: 12,  label: 'Teşekkür' },
+  'evet':        { videoId: 'oKOpK-O1MkQ', start: 0,   end: 8,   label: 'Evet' },
+  'hayır':       { videoId: 'oKOpK-O1MkQ', start: 10,  end: 20,  label: 'Hayır' },
+  'lütfen':      { videoId: '6SbkkwtI-m0', start: 15,  end: 28,  label: 'Lütfen' },
+  'özür':        { videoId: '6SbkkwtI-m0', start: 30,  end: 42,  label: 'Özür Dilerim' },
+  'anlıyorum':   { videoId: '6SbkkwtI-m0', start: 45,  end: 56,  label: 'Anlıyorum' },
+  'bilmiyorum':  { videoId: '6SbkkwtI-m0', start: 58,  end: 70,  label: 'Bilmiyorum' },
+  // Yiyecek ve içecek
+  'su':          { videoId: '9wKCawQGRL8', start: 0,   end: 10,  label: 'Su' },
+  'yemek':       { videoId: 'g59v-Ze8fjI', start: 0,   end: 10,  label: 'Yemek' },
+  'ekmek':       { videoId: 'AHrBMZOXGpg', start: 0,   end: 10,  label: 'Ekmek' },
+  // Sayılar — 6SbkkwtI-m0 (EGO Bilgi iletişim, embed ✓)
+  'bir':         { videoId: '6SbkkwtI-m0', start: 75,  end: 82,  label: '1 - Bir' },
+  'iki':         { videoId: '6SbkkwtI-m0', start: 83,  end: 90,  label: '2 - İki' },
+  'üç':          { videoId: '6SbkkwtI-m0', start: 91,  end: 98,  label: '3 - Üç' },
+  'dört':        { videoId: '6SbkkwtI-m0', start: 99,  end: 106, label: '4 - Dört' },
+  'beş':         { videoId: '6SbkkwtI-m0', start: 107, end: 114, label: '5 - Beş' },
+  'altı':        { videoId: '6SbkkwtI-m0', start: 115, end: 122, label: '6 - Altı' },
+  'yedi':        { videoId: '6SbkkwtI-m0', start: 123, end: 130, label: '7 - Yedi' },
+  'sekiz':       { videoId: '6SbkkwtI-m0', start: 131, end: 138, label: '8 - Sekiz' },
+  'dokuz':       { videoId: '6SbkkwtI-m0', start: 139, end: 146, label: '9 - Dokuz' },
+  'on':          { videoId: '6SbkkwtI-m0', start: 147, end: 154, label: '10 - On' },
+  // Renkler — X8_UW20wBNk devam
+  'kırmızı':    { videoId: 'X8_UW20wBNk', start: 60,  end: 72,  label: 'Kırmızı' },
+  'mavi':        { videoId: 'X8_UW20wBNk', start: 73,  end: 85,  label: 'Mavi' },
+  'yeşil':      { videoId: 'X8_UW20wBNk', start: 86,  end: 98,  label: 'Yeşil' },
+  'sarı':        { videoId: 'X8_UW20wBNk', start: 99,  end: 111, label: 'Sarı' },
+  'beyaz':       { videoId: 'X8_UW20wBNk', start: 112, end: 124, label: 'Beyaz' },
+  'siyah':       { videoId: 'X8_UW20wBNk', start: 125, end: 137, label: 'Siyah' },
+  'mor':         { videoId: 'X8_UW20wBNk', start: 138, end: 150, label: 'Mor' },
+  // Aile — 31E2MzCK6LA (TİD Sözlüğü - Aile, embed ✓)
+  'anne':        { videoId: '31E2MzCK6LA', start: 0,   end: 10,  label: 'Anne' },
+  'baba':        { videoId: '31E2MzCK6LA', start: 12,  end: 22,  label: 'Baba' },
+  'kardeş':     { videoId: '31E2MzCK6LA', start: 24,  end: 34,  label: 'Kardeş' },
+  'abla':        { videoId: '31E2MzCK6LA', start: 36,  end: 46,  label: 'Abla' },
+  'abi':         { videoId: '31E2MzCK6LA', start: 48,  end: 58,  label: 'Abi' },
+  'aile':        { videoId: '31E2MzCK6LA', start: 0,   end: 60,  label: 'Aile' },
+  // Duygular — genel eğitim videosu
+  'mutlu':       { videoId: 'X8_UW20wBNk', start: 155, end: 167, label: 'Mutlu' },
+  'üzgün':      { videoId: 'X8_UW20wBNk', start: 168, end: 180, label: 'Üzgün' },
+  'sinirli':     { videoId: 'X8_UW20wBNk', start: 181, end: 193, label: 'Sinirli' },
+  'korkmuş':    { videoId: 'X8_UW20wBNk', start: 194, end: 206, label: 'Korkmuş' },
+  'şaşkın':     { videoId: 'X8_UW20wBNk', start: 207, end: 219, label: 'Şaşkın' },
+  'yorgun':      { videoId: 'X8_UW20wBNk', start: 220, end: 232, label: 'Yorgun' },
+  // Yardım ve acil
+  'yardım':      { videoId: '7pC5v1V4tks', start: 0,   end: 10,  label: 'Yardım' },
+  'doktor':      { videoId: 'Rex2LxFBaSw', start: 0,   end: 10,  label: 'Doktor' },
+  'okul':        { videoId: 'GZ8yv8j07nE', start: 0,   end: 10,  label: 'Okul' },
 };
 
 // Tüm kategoriler
 const CATEGORIES = [
   { id: 'temel',   label: '👋 Temel',    keys: ['merhaba','günaydın','iyi günler','teşekkür','evet','hayır','lütfen','özür','anlıyorum','bilmiyorum'] },
+  { id: 'yiyecek', label: '🍞 Yiyecek',  keys: ['su','yemek','ekmek'] },
   { id: 'sayilar', label: '🔢 Sayılar',  keys: ['bir','iki','üç','dört','beş','altı','yedi','sekiz','dokuz','on'] },
   { id: 'renkler', label: '🎨 Renkler',  keys: ['kırmızı','mavi','yeşil','sarı','beyaz','siyah','mor'] },
   { id: 'aile',    label: '👨‍👩‍👧 Aile',    keys: ['anne','baba','kardeş','abla','abi','aile'] },
   { id: 'duygular',label: '😊 Duygular', keys: ['mutlu','üzgün','sinirli','korkmuş','şaşkın','yorgun'] },
+  { id: 'diger',   label: '🏥 Diğer',    keys: ['yardım','doktor','okul'] },
 ];
 
-// Ana TİD eğitim kanalı playlist (genel bakış)
-const MAIN_CHANNEL_VIDEO = 'SvSxHi6p4aE'; // TİD genel eğitim videosu
+// Varsayılan başlangıç videosu — embed izni doğrulanmış
+const MAIN_CHANNEL_VIDEO = 'X8_UW20wBNk';
+
 
 interface Props {
   onClose: () => void;
