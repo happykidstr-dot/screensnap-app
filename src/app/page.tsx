@@ -98,62 +98,15 @@ export default function Home() {
   const recorder = useRecorder({
     onRequestTitle: saveDialog.requestTitle,
     onSaved: () => loadVideos(),
-    onDrawGuests: (ctx, outW, outH) => {
-      // ── Draw guest grid if there are guests ──
-      if (guestRoom.guests.length > 0) {
-        const margin = Math.round(Math.min(outW, outH) * 0.03);
-        const gW = Math.round(outW * 0.25);
-        const gH = outH - (margin * 2);
-        guestRoom.drawGuestGrid(ctx, outW - gW - margin, margin, gW, gH);
-      }
-      // ── Burn live captions into recorded video ──
-      const captionText = captionTextRef.current;
-      if (captionText) {
-        const fontSize = Math.round(outH * 0.038); // ~38px at 1080p
-        ctx.save();
-        ctx.font = `bold ${fontSize}px -apple-system, 'Helvetica Neue', sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        const padding = Math.round(outH * 0.018);
-        const maxWidth = outW * 0.82;
-        // Word-wrap
-        const words = captionText.split(' ');
-        const lines: string[] = [];
-        let current = '';
-        for (const word of words) {
-          const test = current ? `${current} ${word}` : word;
-          if (ctx.measureText(test).width > maxWidth && current) {
-            lines.push(current);
-            current = word;
-          } else {
-            current = test;
-          }
+    captionRef: captionTextRef,
+    onDrawGuests: guestRoom.guests.length > 0
+      ? (ctx, outW, outH) => {
+          const margin = Math.round(Math.min(outW, outH) * 0.03);
+          const gW = Math.round(outW * 0.25);
+          const gH = outH - (margin * 2);
+          guestRoom.drawGuestGrid(ctx, outW - gW - margin, margin, gW, gH);
         }
-        if (current) lines.push(current);
-        const lineH = fontSize * 1.4;
-        const boxH = lines.length * lineH + padding * 2;
-        const boxY = outH - boxH - Math.round(outH * 0.04);
-        // Background pill
-        ctx.fillStyle = 'rgba(0,0,0,0.75)';
-        const bx = outW * 0.09, bw = outW * 0.82;
-        const br = Math.round(fontSize * 0.55);
-        if (ctx.roundRect) {
-          ctx.beginPath();
-          ctx.roundRect(bx, boxY, bw, boxH, br);
-          ctx.fill();
-        } else {
-          ctx.fillRect(bx, boxY, bw, boxH);
-        }
-        // Text
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = 'rgba(0,0,0,0.9)';
-        ctx.shadowBlur = 4;
-        lines.forEach((line, i) => {
-          ctx.fillText(line, outW / 2, boxY + padding + (i + 1) * lineH);
-        });
-        ctx.restore();
-      }
-    },
+      : undefined,
   });
 
   // Sync recorder's live stream state to broadcastStream (for guest room)

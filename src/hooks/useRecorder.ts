@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, MutableRefObject } from 'react';
 import { saveVideo, VideoRecord, TranscriptSegment, Chapter } from '@/lib/db';
 import { TranscriptRecorder } from '@/lib/transcript';
 import { BackgroundBlur } from '@/lib/bgBlur';
@@ -41,9 +41,55 @@ interface UseRecorderOptions {
   onRequestTitle?: () => Promise<SaveInfo | null>;
   /** Optional callback: draw extra content (e.g. guest video grid) onto the output canvas each frame */
   onDrawGuests?: (ctx: CanvasRenderingContext2D, outW: number, outH: number) => void;
+  /** Ref to current live caption text — when set, text is burned into the recording */
+  captionRef?: MutableRefObject<string>;
 }
 
-export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecorderOptions = {}) {
+/** Utility: draw caption text onto the recording canvas */
+function drawCaptionOnCanvas(ctx: CanvasRenderingContext2D, outW: number, outH: number, text: string) {
+  if (!text) return;
+  const fontSize = Math.round(outH * 0.038);
+  ctx.save();
+  ctx.font = `bold ${fontSize}px -apple-system, 'Helvetica Neue', Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  const padding = Math.round(outH * 0.018);
+  const maxW = outW * 0.82;
+  // Word-wrap
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+    else { cur = test; }
+  }
+  if (cur) lines.push(cur);
+  const lineH = fontSize * 1.45;
+  const boxH = lines.length * lineH + padding * 2;
+  const margin = Math.round(outH * 0.04);
+  const boxY = outH - boxH - margin;
+  const bx = outW * 0.09;
+  const bw = outW * 0.82;
+  const br = Math.round(fontSize * 0.5);
+  // Semi-transparent background
+  ctx.fillStyle = 'rgba(0,0,0,0.78)';
+  if (ctx.roundRect) {
+    ctx.beginPath(); ctx.roundRect(bx, boxY, bw, boxH, br); ctx.fill();
+  } else {
+    ctx.fillRect(bx, boxY, bw, boxH);
+  }
+  // White text with shadow
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.95)';
+  ctx.shadowBlur = 5;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, outW / 2, boxY + padding + (i + 1) * lineH - fontSize * 0.15);
+  });
+  ctx.restore();
+}
+
+export function useRecorder({ onSaved, onRequestTitle, onDrawGuests, captionRef }: UseRecorderOptions = {}) {
   const onDrawGuestsRef = useRef<((ctx: CanvasRenderingContext2D, outW: number, outH: number) => void) | undefined>(undefined);
   useEffect(() => { onDrawGuestsRef.current = onDrawGuests; }, [onDrawGuests]);
 
@@ -572,6 +618,8 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
             if (scoreboardEnabledRef.current) drawScoreboard(ctx, outW, outH, scoreLeftRef.current, scoreRightRef.current);
             // Scene fade-in
             if (sceneTransOpacityRef.current < 1) { ctx.save(); ctx.fillStyle = `rgba(0,0,0,${1-sceneTransOpacityRef.current})`; ctx.fillRect(0,0,outW,outH); ctx.restore(); }
+            // Live captions burned into video
+            if (captionRef?.current) drawCaptionOnCanvas(ctx, outW, outH, captionRef.current);
           } catch (e) { console.warn('[ScreenSnap] webcamOnly draw error:', e); }
           // NOTE: no self-scheduling — setInterval handles this automatically
         };
@@ -713,6 +761,8 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
             if (tickerEnabledRef.current&&tickerTextRef.current) drawTicker(ctx2,outW2,outH2,tickerTextRef.current,nowMs,tickerSpeedRef.current,brandColor);
             if (clockEnabledRef.current) drawClock(ctx2,outW2,outH2,clockPositionRef.current,true);
             if (liveBadgeRef.current) drawLiveBadge(ctx2,outW2,outH2,nowMs,liveBadgePosRef.current);
+            // Live captions burned into video
+            if (captionRef?.current) drawCaptionOnCanvas(ctx2, outW2, outH2, captionRef.current);
           } catch(e) { console.warn('[ScreenSnap] scene draw error:',e); }
         };
         rafRef.current = setInterval(drawScene, 33) as unknown as number;
@@ -1008,6 +1058,11 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests }: UseRecord
         // ── Guest video grid ──────────────────────────────────────
         if (onDrawGuestsRef.current) {
           onDrawGuestsRef.current(ctx, outW, outH);
+        }
+
+        // ── Live captions burned into video ───────────────────────
+        if (captionRef?.current) {
+          drawCaptionOnCanvas(ctx, outW, outH, captionRef.current);
         }
 
         } catch (e) { console.warn('[ScreenSnap] draw error:', e); }
