@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import AudioVisualizer from './AudioVisualizer';
 import VirtualBgPicker from './VirtualBgPicker';
-import { t } from '../lib/translations';
+import { t, Lang } from '../lib/translations';
 import { FrameStyle, FRAME_OPTIONS } from '../lib/videoFrame';
 import { Quality, WebcamShape, WebcamPosition, AspectRatio } from '../hooks/useRecorder';
 
@@ -50,7 +50,7 @@ import { FramePickerWithPreview } from './FramePickerWithPreview';
 interface RecorderSectionProps {
   recorder: any; // Using any for brevity of the large recorder object, or define full type
   guestRoom: any;
-  lang: string;
+  lang: Lang;
   isSaving: boolean;
   setShowPresets: (v: boolean) => void;
   setShowUrlDialog: (v: boolean) => void;
