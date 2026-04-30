@@ -27,8 +27,8 @@ import { translateTranscript, TRANSLATION_LANGUAGES } from '@/lib/aiTranslate';
 import { downloadBlob } from '@/lib/zipBackup';
 import { TranscriptRecorder } from '@/lib/transcript';
 import { getViewCount } from '@/lib/viewCount';
-import { exportSRT, exportVTT } from '@/lib/subtitleExport';
 import SpotlightOverlay from './SpotlightOverlay';
+import { toast } from './Toast';
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -170,17 +170,37 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
     setCurrentSubtitle(found?.text ?? '');
   }, [currentTime, showSubtitles, record.transcript]);
 
-  const handleSaveTitle = async () => { await updateVideoTitle(record.id, title); setEditingTitle(false); };
+  const handleSaveTitle = async () => { 
+    await updateVideoTitle(record.id, title); 
+    setEditingTitle(false); 
+    toast('Başlık güncellendi!', 'success');
+  };
   const handleDelete = async () => {
-    if (confirm('Delete this recording permanently?')) { await deleteVideo(record.id); onDeleted(); onClose(); }
+    if (confirm('Delete this recording permanently?')) { 
+      await deleteVideo(record.id); 
+      onDeleted(); 
+      toast('Video silindi.', 'info');
+      onClose(); 
+    }
   };
 
   const handleShare = async () => {
-    if (cloudUrl) { navigator.clipboard.writeText(cloudUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); return; }
+    if (cloudUrl) { 
+      navigator.clipboard.writeText(cloudUrl); 
+      setCopied(true); 
+      toast('Link kopyalandı!', 'success');
+      setTimeout(() => setCopied(false), 2000); 
+      return; 
+    }
     const file = new File([record.blob], `${title}.webm`, { type: record.blob.type });
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try { await navigator.share({ title, files: [file] }); } catch { /* cancelled */ }
-    } else { navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    } else { 
+      navigator.clipboard.writeText(window.location.href); 
+      setCopied(true); 
+      toast('Sayfa linki kopyalandı!', 'success');
+      setTimeout(() => setCopied(false), 2000); 
+    }
   };
 
   const handleEmailShare = () => {
@@ -212,7 +232,11 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
     try {
       const mp4 = await convertVideo(record.blob, { format: 'mp4', quality: 'medium', onProgress: setMp4Progress });
       downloadBlob(mp4, `${title}.mp4`);
-    } catch (err) { alert(`MP4 export failed: ${err}`); } finally { setExportingMp4(false); setMp4Progress(0); }
+      toast('MP4 dışa aktarıldı!', 'success');
+    } catch (err) { 
+      toast('MP4 export başarısız.', 'error');
+      alert(`MP4 export failed: ${err}`); 
+    } finally { setExportingMp4(false); setMp4Progress(0); }
   };
 
   const handleCompress = async () => {
@@ -223,7 +247,11 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
     try {
       const compressed = await compressVideo(record.blob, targetMB, setCompressProgress);
       downloadBlob(compressed, `${title}-compressed.mp4`);
-    } catch (err) { alert(`Compression failed: ${err}`); } finally { setCompressing(false); setCompressProgress(0); }
+      toast('Video sıkıştırıldı!', 'success');
+    } catch (err) { 
+      toast('Sıkıştırma başarısız.', 'error');
+      alert(`Compression failed: ${err}`); 
+    } finally { setCompressing(false); setCompressProgress(0); }
   };
 
   const handleCloudUpload = async () => {
@@ -234,14 +262,27 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
       await updateVideoCloudUrl(record.id, url);
       setCloudUrl(url);
       navigator.clipboard.writeText(url);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
-    } catch (err) { alert(`Upload failed: ${err}`); } finally { setUploadingCloud(false); setUploadProgress(0); }
+      setCopied(true); 
+      toast('Buluta yüklendi ve link kopyalandı!', 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) { 
+      toast('Yükleme başarısız.', 'error');
+      alert(`Upload failed: ${err}`); 
+    } finally { setUploadingCloud(false); setUploadProgress(0); }
   };
 
   const handleGenerateAI = async () => {
-    if (!getOpenAIKey()) { alert('Add your OpenAI API key in Settings → AI.'); return; }
+    if (!getOpenAIKey()) { 
+      toast('OpenAI API anahtarı eksik!', 'error');
+      alert('Add your OpenAI API key in Settings → AI.'); 
+      return; 
+    }
     const transcript = record.transcript?.map(s => s.text).join(' ') ?? '';
-    if (!transcript.trim()) { alert('No transcript. Enable "Transcript" when recording.'); return; }
+    if (!transcript.trim()) { 
+      toast('Transcript bulunamadı.', 'info');
+      alert('No transcript. Enable "Transcript" when recording.'); 
+      return; 
+    }
     setGeneratingAI(true); setAiError('');
     try {
       const result = await generateAISummary(transcript);
@@ -250,7 +291,11 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
       setAiEmailDraft(result.emailDraft);
       setAiWikiDocument(result.wikiDocument);
       await updateVideoAI(record.id, result.summary, result.keyPoints, result.emailDraft, result.wikiDocument);
-    } catch (err) { setAiError(String(err)); } finally { setGeneratingAI(false); }
+      toast('AI Özeti oluşturuldu!', 'success');
+    } catch (err) { 
+      setAiError(String(err)); 
+      toast('AI işlemi başarısız.', 'error');
+    } finally { setGeneratingAI(false); }
   };
 
   // ── AI Chapter Detection ─────────────────────────────────────────────────

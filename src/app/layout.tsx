@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import SignLanguageAvatar from "@/components/SignLanguageAvatar";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,6 +26,8 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
+
+import { ToastContainer } from "@/components/Toast";
 
 export default function RootLayout({
   children,
@@ -53,7 +56,8 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         {children}
-
+        <ToastContainer />
+        <SignLanguageAvatar />
       </body>
     </html>
   );

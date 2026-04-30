@@ -42,6 +42,7 @@ interface LiveCaptionsProps {
   isRecording: boolean;
   enabled: boolean;
   onCaptionChange?: (text: string) => void;
+  onFinalCaption?: (text: string) => void;
 }
 
 interface CaptionLine {
@@ -49,7 +50,7 @@ interface CaptionLine {
   text: string;
 }
 
-export default function LiveCaptions({ isRecording, enabled, onCaptionChange }: LiveCaptionsProps) {
+export default function LiveCaptions({ isRecording, enabled, onCaptionChange, onFinalCaption }: LiveCaptionsProps) {
   const [captions, setCaptions] = useState<CaptionLine[]>([]);
   const [interim, setInterim] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -93,6 +94,7 @@ export default function LiveCaptions({ isRecording, enabled, onCaptionChange }: 
             });
             setInterim('');
             onCaptionChange?.(txt);
+            onFinalCaption?.(txt);
           }
         } else {
           interimText += result[0].transcript;

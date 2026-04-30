@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Square, Pause, Play, GripHorizontal, BookmarkPlus } from 'lucide-react';
+import { Square, Pause, Play, GripHorizontal, BookmarkPlus, MonitorPlay } from 'lucide-react';
 import { formatDuration } from '@/hooks/useRecorder';
 
 interface FloatingRecordBarProps {
@@ -11,6 +11,8 @@ interface FloatingRecordBarProps {
   onPause: () => void;
   onResume: () => void;
   onAddChapter?: () => void;
+  /** Called when user wants to re-open the live monitor */
+  onShowMonitor?: () => void;
 }
 
 /**
@@ -19,7 +21,7 @@ interface FloatingRecordBarProps {
  * Lets the user stop/pause without navigating back to the main panel.
  */
 export default function FloatingRecordBar({
-  state, elapsed, onStop, onPause, onResume, onAddChapter,
+  state, elapsed, onStop, onPause, onResume, onAddChapter, onShowMonitor,
 }: FloatingRecordBarProps) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [initialized, setInitialized] = useState(false);
@@ -31,7 +33,7 @@ export default function FloatingRecordBar({
   // Center-bottom on first render
   useEffect(() => {
     if (initialized) return;
-    setPos({ x: window.innerWidth / 2 - 140, y: window.innerHeight - 80 });
+    setPos({ x: window.innerWidth / 2 - 150, y: window.innerHeight - 80 });
     setInitialized(true);
   }, [initialized]);
 
@@ -85,6 +87,17 @@ export default function FloatingRecordBar({
           <span className="text-white font-mono text-sm font-bold min-w-[44px]">{formatDuration(elapsed)}</span>
           {state === 'paused' && <span className="text-yellow-400 text-xs font-semibold">PAUSED</span>}
         </div>
+
+        {/* Live Monitor shortcut button */}
+        {onShowMonitor && (
+          <button
+            title="Canlı Monitörü Göster"
+            onClick={onShowMonitor}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-300 hover:bg-cyan-500/15 transition-all"
+          >
+            <MonitorPlay className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Chapter bookmark */}
         <button

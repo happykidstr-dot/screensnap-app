@@ -1072,6 +1072,12 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests, captionRef 
       rafRef.current = setInterval(draw, 33) as unknown as number;
       draw(); // draw first frame immediately
 
+      // ── Expose canvas stream early so LiveMonitor shows up immediately ──
+      // (Full finalStream with audio is set below after audio setup)
+      const earlyCanvasStream = canvas.captureStream(preset.fps);
+      liveStreamRef.current = earlyCanvasStream;
+      setLiveStream(earlyCanvasStream);
+
       // Audio
       const audioTracks: MediaStreamTrack[] = [];
       try {

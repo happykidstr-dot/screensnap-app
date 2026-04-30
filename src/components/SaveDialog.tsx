@@ -1,19 +1,21 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Tag } from 'lucide-react';
+import { X, Tag, Folder, ChevronDown } from 'lucide-react';
 
 interface SaveDialogProps {
   defaultTitle: string;
   thumbnail?: string;
-  onSave: (title: string, tags: string[]) => void;
+  folders?: string[];
+  onSave: (title: string, tags: string[], folder?: string) => void;
   onDiscard: () => void;
 }
 
-export default function SaveDialog({ defaultTitle, thumbnail, onSave, onDiscard }: SaveDialogProps) {
+export default function SaveDialog({ defaultTitle, thumbnail, folders = [], onSave, onDiscard }: SaveDialogProps) {
   const [title, setTitle] = useState(defaultTitle);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [folder, setFolder] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -73,7 +75,6 @@ export default function SaveDialog({ defaultTitle, thumbnail, onSave, onDiscard 
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && tags.length === 0 && onSave(title, tags)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               placeholder="My Recording"
             />
@@ -104,6 +105,29 @@ export default function SaveDialog({ defaultTitle, thumbnail, onSave, onDiscard 
               />
             </div>
           </div>
+
+          {/* Folder */}
+          {folders.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                <Folder className="w-3 h-3" /> Folder
+              </label>
+              <div className="relative">
+                <select 
+                  value={folder} 
+                  onChange={e => setFolder(e.target.value)}
+                  style={{ backgroundColor: '#1e1b2e', color: '#e2e0f0' }}
+                  className="w-full appearance-none bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                >
+                  <option value="" style={{ backgroundColor: '#1e1b2e', color: '#e2e0f0' }}>No folder</option>
+                  {folders.map(f => (
+                    <option key={f} value={f} style={{ backgroundColor: '#1e1b2e', color: '#e2e0f0' }}>{f}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -115,7 +139,7 @@ export default function SaveDialog({ defaultTitle, thumbnail, onSave, onDiscard 
             Discard
           </button>
           <button
-            onClick={() => onSave(title, tags)}
+            onClick={() => onSave(title, tags, folder || undefined)}
             className="flex-[2] px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white font-bold transition-all shadow-lg shadow-purple-600/30 text-sm"
           >
             Save Recording

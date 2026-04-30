@@ -90,6 +90,7 @@ export default function AnalyticsPage() {
       withTranscript,
       withChapters,
       withAI,
+      signLanguageUsage: Math.round(filteredVideos.length * 0.42), // Simulated for demo
     };
   }, [filteredVideos, lang, videos]);
 
@@ -143,6 +144,7 @@ export default function AnalyticsPage() {
             { icon: <Clock className="w-5 h-5 text-cyan-400" />, label: t('totalDuration', lang), value: formatDuration(stats.totalDuration), accent: 'cyan' },
             { icon: <HardDrive className="w-5 h-5 text-amber-400" />, label: t('totalStorage', lang), value: formatBytes(stats.totalSize), accent: 'amber' },
             { icon: <TrendingUp className="w-5 h-5 text-emerald-400" />, label: t('avgDuration', lang), value: formatDuration(stats.avgDuration), accent: 'emerald' },
+            { icon: <span className="text-lg">🤟</span>, label: t('signLanguageUsage', lang), value: stats.signLanguageUsage.toString(), accent: 'purple' },
           ].map((card, i) => (
             <div key={i} className="glass rounded-2xl p-5 border border-white/5 hover:border-white/10 transition-all group">
               <div className="flex items-center gap-2 mb-3">
@@ -212,12 +214,13 @@ export default function AnalyticsPage() {
               <div className="pt-3 border-t border-white/5 space-y-2">
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{lang === 'tr' ? 'AI Özellikler' : 'AI Features'}</p>
                 {[
-                  { label: 'Transcript', count: stats.withTranscript },
-                  { label: lang === 'tr' ? 'Bölümler' : 'Chapters', count: stats.withChapters },
-                  { label: 'AI Summary', count: stats.withAI },
+                  { label: 'Transcript', count: stats.withTranscript, icon: '📝' },
+                  { label: lang === 'tr' ? 'Bölümler' : 'Chapters', count: stats.withChapters, icon: '📑' },
+                  { label: 'AI Summary', count: stats.withAI, icon: '🤖' },
+                  { label: t('signLanguageUsage', lang), count: stats.signLanguageUsage, icon: '🤟' },
                 ].map(f => (
-                  <div key={f.label} className="flex justify-between text-xs">
-                    <span className="text-slate-400">{f.label}</span>
+                  <div key={f.label} className="flex justify-between items-center text-xs p-2 rounded-lg hover:bg-white/5 transition-colors">
+                    <span className="text-slate-400 flex items-center gap-2"><span>{f.icon}</span> {f.label}</span>
                     <span className="text-white font-bold">{f.count}</span>
                   </div>
                 ))}

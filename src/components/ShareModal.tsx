@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Copy, Code, Lock, Clock, Link, Check, Share2 } from 'lucide-react';
 import { Lang, t } from '@/lib/i18n';
+import { toast } from '@/components/Toast';
 
 interface ShareModalProps {
   lang: Lang;
@@ -23,6 +24,7 @@ export default function ShareModal({ lang, videoTitle, cloudUrl, onClose }: Shar
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopied(label);
+    toast(lang === 'tr' ? 'Kopyalandı!' : 'Copied to clipboard!', 'success');
     setTimeout(() => setCopied(''), 2000);
   };
 

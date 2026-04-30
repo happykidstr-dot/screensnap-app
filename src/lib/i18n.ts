@@ -201,6 +201,8 @@ export const translations = {
   storageUsage: { tr: 'Depolama Kullanımı', en: 'Storage Usage' },
   topTags: { tr: 'En Çok Kullanılan Etiketler', en: 'Most Used Tags' },
   recentActivity: { tr: 'Son Aktivite', en: 'Recent Activity' },
+  signLanguageUsage: { tr: 'İşaret Dili Kullanımı', en: 'Sign Language Usage' },
+  signLanguageAssistant: { tr: 'TİD ASİSTAN', en: 'SL ASSISTANT' },
 
   // ─── Batch Operations ───────────────────────────────────────────
   selectAll: { tr: 'Tümünü Seç', en: 'Select All' },
