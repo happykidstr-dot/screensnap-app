@@ -1061,61 +1061,67 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
               <div className="space-y-4">
                 {!getOpenAIKey() && (
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-amber-300 text-sm">
-                    ⚠️ Add your OpenAI API key in <a href="/settings" className="underline">Settings → AI</a> to use this feature.
+                    ⚠️ OpenAI API anahtarınızı <a href="/settings" className="underline font-bold">Ayarlar → AI</a> bölümünden ekleyin.
+                  </div>
+                )}
+                {!record.transcript?.length && (
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-blue-300 text-sm">
+                    💡 <b>İpucu:</b> AI özelliklerinin tamamı için kayıt sırasında <b>Advanced Settings → Transcript</b> seçeneğini açık bırakın.
                   </div>
                 )}
                 {aiError && <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-300 text-sm">{aiError}</div>}
-                <button onClick={handleGenerateAI} disabled={generatingAI}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white text-sm font-bold disabled:opacity-50 transition-all">
-                  {generatingAI ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</> : <><Sparkles className="w-4 h-4" /> Generate AI Summary</>}
-                </button>
-
-                {aiSummary && (
-                  <div className="space-y-3">
-                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Summary</h3>
-                      <p className="text-slate-300 text-sm leading-relaxed">{aiSummary}</p>
-                    </div>
-                    {aiKeyPoints.length > 0 && (
-                      <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Key Points</h3>
-                        <ul className="space-y-1.5">
-                          {aiKeyPoints.map((pt, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                              <span className="text-purple-400 shrink-0 mt-0.5">•</span>{pt}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {aiEmailDraft && (
-                      <div className="bg-white/5 rounded-2xl p-4 border border-white/10 relative group">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Satış E-posta Taslağı</h3>
-                          <button
-                            onClick={() => { navigator.clipboard.writeText(aiEmailDraft); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
-                            <Copy className="w-3.5 h-3.5" /> {copied ? 'Kopyalandı!' : 'Kopyala'}
-                          </button>
-                        </div>
-                        <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{aiEmailDraft}</div>
-                      </div>
-                    )}
-                    {aiWikiDocument && (
-                      <div className="bg-white/5 rounded-2xl p-4 border border-white/10 relative group">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-400" /> Şirket Dokümantasyonu (Wiki)</h3>
-                          <button
-                            onClick={() => { navigator.clipboard.writeText(aiWikiDocument); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all">
-                            <Copy className="w-3.5 h-3.5" /> {copied ? 'Kopyalandı!' : 'Kopyala'}
-                          </button>
-                        </div>
-                        <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap font-mono">{aiWikiDocument}</div>
-                      </div>
-                    )}
+                {/* AI Summary */}
+                <div className="border border-purple-500/20 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-purple-500/20 flex items-center justify-center"><Sparkles className="w-4 h-4 text-purple-400" /></div>
+                    <div><h3 className="text-white font-bold text-sm">🧠 AI Özet + 📧 Email + 📖 Wiki</h3><p className="text-xs text-slate-500">Transcript'ten otomatik özet, satış emaili ve dokümantasyon</p></div>
                   </div>
-                )}
+                  <button onClick={handleGenerateAI} disabled={generatingAI} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white text-sm font-bold disabled:opacity-50 transition-all">
+                    {generatingAI ? <><Loader2 className="w-4 h-4 animate-spin" /> Oluşturuluyor…</> : <><Sparkles className="w-4 h-4" /> AI Özet + Email + Wiki Oluştur</>}
+                  </button>
+                  {aiSummary && (
+                    <div className="space-y-2">
+                      <div className="bg-white/5 rounded-xl p-3 border border-white/10"><h3 className="text-xs font-bold text-slate-400 uppercase mb-2">📝 Özet</h3><p className="text-slate-300 text-sm leading-relaxed">{aiSummary}</p></div>
+                      {aiKeyPoints.length > 0 && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><h3 className="text-xs font-bold text-slate-400 uppercase mb-2">📌 Ana Noktalar</h3><ul className="space-y-1">{aiKeyPoints.map((pt, i) => <li key={i} className="flex gap-2 text-sm text-slate-300"><span className="text-purple-400 shrink-0">•</span>{pt}</li>)}</ul></div>}
+                      {aiEmailDraft && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><div className="flex items-center justify-between mb-1"><h3 className="text-xs font-bold text-slate-400 uppercase">📧 Email Taslağı</h3><button onClick={() => { navigator.clipboard.writeText(aiEmailDraft); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold"><Copy className="w-3 h-3 inline mr-1" />{copied ? '✅' : 'Kopyala'}</button></div><div className="text-slate-300 text-sm whitespace-pre-wrap max-h-36 overflow-y-auto">{aiEmailDraft}</div></div>}
+                      {aiWikiDocument && <div className="bg-white/5 rounded-xl p-3 border border-white/10"><div className="flex items-center justify-between mb-1"><h3 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><BookOpen className="w-3 h-3 text-blue-400" />📖 Wiki</h3><div className="flex gap-1"><button onClick={() => { navigator.clipboard.writeText(aiWikiDocument); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs">Kopyala</button><button onClick={() => downloadBlob(new Blob([aiWikiDocument], { type: 'text/markdown' }), `${title}-wiki.md`)} className="px-2 py-1 rounded-lg bg-blue-500/20 text-blue-300 text-xs">.md</button></div></div><div className="text-slate-300 text-xs whitespace-pre-wrap font-mono max-h-36 overflow-y-auto">{aiWikiDocument}</div></div>}
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Chapters */}
+                <div className="border border-violet-500/20 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-violet-500/20 flex items-center justify-center"><BookOpen className="w-4 h-4 text-violet-400" /></div><div><h3 className="text-white font-bold text-sm">🔖 AI Bölümler</h3><p className="text-xs text-slate-500">Transcript'ten otomatik bölüm başlıkları</p></div></div>
+                    <button onClick={() => setActiveTab('chapters')} className="text-xs text-violet-400 hover:text-violet-300">Chapters →</button>
+                  </div>
+                  {record.transcript?.length ? <button onClick={handleGenerateChapters} disabled={generatingChapters} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/20 text-violet-300 text-sm font-bold disabled:opacity-50 transition-all">{generatingChapters ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Oluşturuluyor…</> : <><Sparkles className="w-3.5 h-3.5" /> Otomatik Bölümler Oluştur</>}</button> : <p className="text-xs text-slate-500 bg-white/5 rounded-xl px-3 py-2">⚠️ Transcript gerekli</p>}
+                  {localChapters.length > 0 && <p className="text-xs text-emerald-400">✅ {localChapters.length} bölüm hazır</p>}
+                </div>
+
+                {/* AI Clip */}
+                <div className="border border-fuchsia-500/20 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 flex items-center justify-center"><Film className="w-4 h-4 text-fuchsia-400" /></div><div><h3 className="text-white font-bold text-sm">✂️ AI Klip — En İyi 60 Saniye</h3><p className="text-xs text-slate-500">Sosyal medya için en değerli anı tespit edip indir</p></div></div>
+                  {record.transcript?.length ? <div className="space-y-2"><button onClick={handleExtractClip} disabled={extractingClip} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-fuchsia-600/20 hover:bg-fuchsia-600/30 border border-fuchsia-500/20 text-fuchsia-300 text-sm font-bold disabled:opacity-50 transition-all">{extractingClip ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {clipProgress}% İşleniyor…</> : <><ClipIcon className="w-3.5 h-3.5" /> En Değerli Klibi Çıkar</>}</button>{clipRange && <p className="text-xs text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl px-3 py-2">✅ {formatDuration(Math.round(clipRange.start))}–{formatDuration(Math.round(clipRange.end))} — {clipRange.reason}</p>}</div> : <p className="text-xs text-slate-500 bg-white/5 rounded-xl px-3 py-2">⚠️ Transcript gerekli</p>}
+                </div>
+
+                {/* AI Translation */}
+                <div className="border border-cyan-500/20 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center"><Sparkles className="w-4 h-4 text-cyan-400" /></div><div><h3 className="text-white font-bold text-sm">🌍 Altyazı Çevirisi</h3><p className="text-xs text-slate-500">TR↔EN ve 12 dil — SRT/VTT indir</p></div></div>
+                  {record.transcript?.length ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <select value={translateLang} onChange={e => setTranslateLang(e.target.value)} style={{ backgroundColor: '#0f172a', color: '#e2e8f0' }} className="border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-cyan-500">
+                        {TRANSLATION_LANGUAGES.map(l => <option key={l.code} value={l.code} style={{ backgroundColor: '#0f172a' }}>{l.label}</option>)}
+                      </select>
+                      <button onClick={async () => { const lang = TRANSLATION_LANGUAGES.find(l => l.code === translateLang); if (!lang) return; setTranslating(true); setTranslateError(''); try { const result = await translateTranscript(record.transcript!.map(s => ({ startTime: s.startTime, text: s.text })), lang.code, lang.label); setTranslatedSegments(result); setActiveTab('transcript'); toast('Çeviri tamamlandı!', 'success'); } catch (e: unknown) { setTranslateError(e instanceof Error ? e.message : 'Çeviri hatası'); } finally { setTranslating(false); } }} disabled={translating} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold disabled:opacity-50 transition-all">
+                        {translating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Çevriliyor…</> : <><Sparkles className="w-3.5 h-3.5" /> Çevir</>}
+                      </button>
+                      {translatedSegments && <span className="text-xs text-emerald-400">✅ Çeviri aktif</span>}
+                      {translateError && <p className="w-full text-red-400 text-xs">{translateError}</p>}
+                    </div>
+                  ) : <p className="text-xs text-slate-500 bg-white/5 rounded-xl px-3 py-2">⚠️ Transcript gerekli</p>}
+                </div>
+
               </div>
             )}
 
