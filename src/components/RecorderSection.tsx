@@ -70,8 +70,8 @@ export function RecorderSection({
   const isActive = recorder.state === 'recording' || recorder.state === 'paused';
 
   return (
-    <section className="mb-14 animate-in fade-in zoom-in-95 duration-500">
-      <div className="glass rounded-[2.5rem] p-8 md:p-12 text-center relative overflow-hidden border border-white/10 shadow-2xl">
+    <section className="mb-10 sm:mb-14 animate-in fade-in zoom-in-95 duration-500">
+      <div className="glass recorder-hero rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 md:p-12 text-center relative overflow-hidden border border-white/10 shadow-2xl">
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-purple-600/10 blur-[100px] pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-cyan-500/10 blur-[100px] pointer-events-none" />
         
@@ -89,7 +89,7 @@ export function RecorderSection({
             )}
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
+          <h1 className="recorder-title text-3xl sm:text-4xl md:text-5xl font-black text-white mb-3 sm:mb-4 tracking-tight">
             {isActive 
               ? (recorder.state === 'paused' ? '⏸ Kayıt Duraklatıldı' : '🔴 Kayıt Devam Ediyor') 
               : recorder.audioOnly ? 'Sadece Ses Kaydı' : recorder.webcamOnly ? 'Webcam Kaydı' : 'Ekranı Kaydet'}
@@ -113,7 +113,7 @@ export function RecorderSection({
                   <span className="w-3 h-3 rounded-full bg-red-500 recording-dot" />
                   <span className="text-red-400 font-bold text-sm tracking-[0.2em] uppercase">RECORDING LIVE</span>
                 </div>
-                <div className="text-white font-mono text-6xl font-black tabular-nums tracking-tighter" style={{ textShadow: '0 0 40px rgba(239,68,68,0.4)' }}>
+                <div className="text-white font-mono text-4xl sm:text-6xl font-black tabular-nums tracking-tighter" style={{ textShadow: '0 0 40px rgba(239,68,68,0.4)' }}>
                   {String(Math.floor(recorder.elapsed / 60)).padStart(2,'0')}:{String(recorder.elapsed % 60).padStart(2,'0')}
                 </div>
               </div>
@@ -150,9 +150,9 @@ export function RecorderSection({
           {recorder.state === 'idle' && (
             <div className="space-y-6 mb-10 max-w-4xl mx-auto">
               {/* Main toggles — 3 modes */}
-              <div className="flex flex-wrap justify-center gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3">
                 {/* Mode selector */}
-                <div className="flex rounded-2xl border border-white/10 overflow-hidden bg-white/5 p-1 gap-1 backdrop-blur-sm">
+                <div className="mode-switcher flex rounded-2xl border border-white/10 overflow-hidden bg-white/5 p-1 gap-1 backdrop-blur-sm">
                   <button
                     onClick={() => { recorder.setAudioOnly(false); recorder.setWebcamOnly(false); }}
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
@@ -329,16 +329,16 @@ export function RecorderSection({
             {recorder.state === 'idle' && (
               <>
                 <button id="btn-start-recording" onClick={() => { setLiveChapters([]); recorder.start(); }}
-                  className="flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white font-black text-xl shadow-2xl shadow-purple-600/40 transition-all hover:scale-[1.03] active:scale-95 group">
-                  <Circle className="w-6 h-6 text-red-400 group-hover:scale-110 transition-transform" /> 
+                  className="flex items-center gap-2 sm:gap-3 px-7 sm:px-10 py-4 sm:py-5 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 text-white font-black text-lg sm:text-xl shadow-2xl shadow-purple-600/40 transition-all hover:scale-[1.03] active:scale-95 group">
+                  <Circle className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 group-hover:scale-110 transition-transform" /> 
                   {recorder.audioOnly ? t('startRecordingAudio', lang) : t('startRecording', lang)}
                 </button>
                 <button onClick={() => setShowPresets(true)}
-                  className="flex items-center gap-3 px-6 py-5 rounded-2xl bg-white/5 hover:bg-purple-500/10 text-slate-300 hover:text-purple-300 font-bold border border-white/10 hover:border-purple-500/30 transition-all">
-                  <Zap className="w-5 h-5" /> {t('presets', lang)}
+                  className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 sm:py-5 rounded-2xl bg-white/5 hover:bg-purple-500/10 text-slate-300 hover:text-purple-300 font-bold border border-white/10 hover:border-purple-500/30 transition-all">
+                  <Zap className="w-4 h-4 sm:w-5 sm:h-5" /> {t('presets', lang)}
                 </button>
                 <button onClick={() => setShowUrlDialog(true)}
-                  className="flex items-center gap-3 px-6 py-5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-bold border border-white/10 transition-all">
+                  className="hidden sm:flex items-center gap-3 px-6 py-5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-bold border border-white/10 transition-all">
                   {t('presentationMode', lang)}
                 </button>
               </>

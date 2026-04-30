@@ -111,3 +111,65 @@ body {
 .glow-purple {
   animation: glow-purple 2s ease-in-out infinite;
 }
+
+/* ── Mobile Touch Targets ── */
+@media (max-width: 640px) {
+  button, a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ── Bottom Nav (mobile) ── */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  background: rgba(13, 13, 20, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Mobile safe bottom padding ── */
+.pb-mobile-nav {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Smooth scroll ── */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Prevent zoom on input focus (iOS) ── */
+input[type="text"],
+input[type="url"],
+input[type="email"],
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* ── Mobile recorder card compact ── */
+@media (max-width: 640px) {
+  .recorder-hero {
+    padding: 32px 20px !important;
+    border-radius: 28px !important;
+  }
+  .recorder-title {
+    font-size: 28px !important;
+  }
+  .mode-switcher {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .mode-switcher button {
+    flex: 1;
+  }
+}

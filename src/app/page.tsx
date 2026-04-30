@@ -512,17 +512,29 @@ export default function Home() {
           </div>
         </div>
       )}
-
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-40 glass border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 shrink-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center shadow-lg shadow-purple-600/30">
               <Video className="w-4 h-4 text-white" />
             </div>
-            <span className="text-white font-bold text-lg tracking-tight">ScreenSnap</span>
+            <span className="text-white font-bold text-lg tracking-tight hidden xs:block">ScreenSnap</span>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Center: recording status (mobile) */}
+          {isActive && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/15 border border-red-500/30 flex-1 sm:flex-none justify-center sm:justify-start max-w-[180px] sm:max-w-none mx-auto sm:mx-0">
+              <span className="w-2 h-2 rounded-full bg-red-400 recording-dot shrink-0" />
+              <span className="text-red-300 text-xs sm:text-sm font-semibold font-mono truncate">
+                {recorder.state === 'paused' ? 'PAUSED · ' : 'REC · '}{formatDuration(recorder.elapsed)}
+              </span>
+            </div>
+          )}
+
+          {/* Right actions */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <LanguageToggle lang={lang} onChange={changeLang} />
             <button
               onClick={() => setShowTeleprompter(v => !v)}
@@ -533,60 +545,65 @@ export default function Home() {
             </button>
             {isActive && (
               <>
-                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/15 border border-red-500/30">
-                  <span className="w-2 h-2 rounded-full bg-red-400 recording-dot" />
-                  <span className="text-red-300 text-sm font-semibold font-mono">
-                    {recorder.state === 'paused' ? 'PAUSED · ' : 'REC · '}{formatDuration(recorder.elapsed)}
-                  </span>
-                </div>
                 <button onClick={() => setIsDrawing(v => !v)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${isDrawing ? 'bg-orange-500/20 border border-orange-500/40 text-orange-300' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}>
+                  className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${isDrawing ? 'bg-orange-500/20 border border-orange-500/40 text-orange-300' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}>
                   <PenLine className="w-4 h-4" /> {isDrawing ? 'Drawing' : 'Draw'}
                 </button>
-                {/* Go Live button */}
                 <button onClick={handleGoLive}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${liveShare.isLive ? 'bg-red-500/20 border border-red-500/40 text-red-300 animate-pulse' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}>
+                  className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${liveShare.isLive ? 'bg-red-500/20 border border-red-500/40 text-red-300 animate-pulse' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}>
                   {liveShare.isLive ? <><Wifi className="w-4 h-4" /> Live ({liveShare.viewerCount})</> : <><Radio className="w-4 h-4" /> Go Live</>}
                 </button>
-                {/* Guest Invite button */}
                 <button onClick={() => { setShowGuestPanel(v => !v); if (!guestRoom.isRoomOpen) guestRoom.openRoom(); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${guestRoom.isRoomOpen ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}>
+                  className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${guestRoom.isRoomOpen ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}>
                   <Users className="w-4 h-4" /> Konuk {guestRoom.guests.length > 0 ? `(${guestRoom.guests.length})` : ''}
                 </button>
               </>
             )}
-            {isSaving && <div className="flex items-center gap-2 text-purple-300 text-sm"><div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /> Processing…</div>}
-            {/* Exit Presentation & Start Record in Presentation Mode */}
+            {isSaving && <div className="flex items-center gap-1.5 text-purple-300 text-xs sm:text-sm"><div className="w-3.5 h-3.5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /><span className="hidden sm:inline">Processing…</span></div>}
             {presentationUrl && !isActive && (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setLiveChapters([]); recorder.start(); }}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold shadow-lg shadow-purple-600/30 transition-all"
-                >
-                  <Circle className="w-4 h-4 text-red-300" /> Kaydı Başlat
+                <button onClick={() => { setLiveChapters([]); recorder.start(); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-purple-600/30 transition-all">
+                  <Circle className="w-3.5 h-3.5 text-red-300" /> <span className="hidden xs:inline">Kaydı Başlat</span>
                 </button>
-                <button
-                  onClick={() => setPresentationUrl(null)}
-                  className="px-3 py-1.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-all"
-                >
-                  Siteden Çık
-                </button>
+                <button onClick={() => setPresentationUrl(null)}
+                  className="px-2.5 py-1.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-semibold transition-all">Çık</button>
               </div>
             )}
-            <Link href="/analytics" title={t('analytics', lang)} className="p-2 rounded-xl text-slate-500 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"><BarChart3 className="w-5 h-5" /></Link>
-            <Link href="/guide" title={t('guide', lang)} className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"><BookOpen className="w-5 h-5" /></Link>
-            {/* Screenshot button */}
-            <button
-              onClick={takeScreenshot}
-              title={t('screenshot', lang)}
-              className="p-2 rounded-xl text-slate-500 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
-            >
+            {/* Icon links — hidden on mobile (moved to bottom nav) */}
+            <Link href="/analytics" title={t('analytics', lang)} className="hidden sm:flex p-2 rounded-xl text-slate-500 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"><BarChart3 className="w-5 h-5" /></Link>
+            <Link href="/guide" title={t('guide', lang)} className="hidden sm:flex p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"><BookOpen className="w-5 h-5" /></Link>
+            <button onClick={takeScreenshot} title={t('screenshot', lang)} className="hidden sm:flex p-2 rounded-xl text-slate-500 hover:text-purple-300 hover:bg-purple-500/10 transition-colors">
               <CameraIcon className="w-5 h-5" />
             </button>
             <Link href="/settings" className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"><Settings className="w-5 h-5" /></Link>
           </div>
         </div>
       </header>
+
+      {/* ── MOBILE BOTTOM NAVIGATION ── */}
+      <nav className="mobile-nav sm:hidden" aria-label="Mobile navigation">
+        <Link href="/" className="flex flex-col items-center justify-center flex-1 py-3 gap-1 text-slate-500 hover:text-purple-300 transition-colors">
+          <Video className="w-5 h-5" />
+          <span className="text-[10px] font-bold">Kayıt</span>
+        </Link>
+        <Link href="/analytics" className="flex flex-col items-center justify-center flex-1 py-3 gap-1 text-slate-500 hover:text-cyan-300 transition-colors">
+          <BarChart3 className="w-5 h-5" />
+          <span className="text-[10px] font-bold">Analitik</span>
+        </Link>
+        <button onClick={takeScreenshot} className="flex flex-col items-center justify-center flex-1 py-3 gap-1 text-slate-500 hover:text-purple-300 transition-colors">
+          <CameraIcon className="w-5 h-5" />
+          <span className="text-[10px] font-bold">Ekran Al</span>
+        </button>
+        <Link href="/guide" className="flex flex-col items-center justify-center flex-1 py-3 gap-1 text-slate-500 hover:text-white transition-colors">
+          <BookOpen className="w-5 h-5" />
+          <span className="text-[10px] font-bold">Kılavuz</span>
+        </Link>
+        <Link href="/settings" className="flex flex-col items-center justify-center flex-1 py-3 gap-1 text-slate-500 hover:text-white transition-colors">
+          <Settings className="w-5 h-5" />
+          <span className="text-[10px] font-bold">Ayarlar</span>
+        </Link>
+      </nav>
 
       <div className="flex flex-1 max-w-7xl mx-auto w-full">
         {/* ── ENTERPRISE WORKSPACES SIDEBAR ── */}
@@ -646,7 +663,7 @@ export default function Home() {
           </div>
         </aside>
 
-        <main className="flex-1 px-6 py-10 min-w-0">
+        <main className="flex-1 px-4 sm:px-6 py-6 sm:py-10 min-w-0 pb-mobile-nav sm:pb-10">
           {/* ── COUNTDOWN ── */}
           {isCountdown && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
