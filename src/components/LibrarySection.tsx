@@ -47,7 +47,7 @@ export function LibrarySection({
       const s = search.toLowerCase();
       list = list.filter(v => v.title.toLowerCase().includes(s) || v.tags?.some(t => t.toLowerCase().includes(s)));
     }
-    return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return list.sort((a, b) => b.createdAt - a.createdAt);
   }, [videos, activeFolder, activeTag, search]);
 
   const allTags = useMemo(() => {
