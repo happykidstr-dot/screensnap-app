@@ -19,7 +19,7 @@ interface LibrarySectionProps {
   activeFolder: string | null;
   setActiveFolder: (folder: string | null) => void;
   loadVideos: () => void;
-  setSelectedVideo: (video: VideoType | null) => void;
+  setSelectedVideo: (video: VideoRecord | null) => void;
   lang: 'en' | 'tr';
 }
 
