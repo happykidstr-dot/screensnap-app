@@ -525,7 +525,7 @@ export default function SignLanguageAvatar({ externalText, recorderState }: Avat
             )}
 
             {/* Speed & Emotion Controls */}
-            <div style={{ marginTop: '24px', spaceY: '12px' }}>
+            <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 800, opacity: 0.5, letterSpacing: '1px' }}>HIZ</span>
                 <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -561,7 +561,7 @@ export default function SignLanguageAvatar({ externalText, recorderState }: Avat
             </div>
           </div>
 
-          <style jsx global>{`
+          <style>{`
             @keyframes pulse {
               0% { transform: scale(0.95); opacity: 0.8; }
               50% { transform: scale(1.15); opacity: 1; }
