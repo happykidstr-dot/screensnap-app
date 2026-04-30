@@ -41,7 +41,7 @@ export async function generateAISummary(
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -61,7 +61,7 @@ ${transcript.substring(0, 4000)}`,
         },
       ],
       temperature: 0.4,
-      max_tokens: 1500,
+      max_tokens: 2000,
     }),
   });
 
@@ -104,7 +104,7 @@ export async function generateAIChapters(
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
