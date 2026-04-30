@@ -5,15 +5,15 @@ import {
   LayoutGrid, Search, X, CheckSquare, Tag, Video, 
   CheckCircle2
 } from 'lucide-react';
-import { VideoCard } from './VideoCard';
-import { BatchToolbar } from './BatchToolbar';
+import VideoCard from './VideoCard';
+import BatchToolbar from './BatchToolbar';
 import { deleteVideo, updateVideoFolder, updateVideoTags } from '../lib/db';
 import { t } from '../lib/translations';
 import { toast } from './Toast';
-import { Video as VideoType } from '../lib/db';
+import { VideoRecord } from '../lib/db';
 
 interface LibrarySectionProps {
-  videos: VideoType[];
+  videos: VideoRecord[];
   folders: string[];
   loadingVideos: boolean;
   activeFolder: string | null;
