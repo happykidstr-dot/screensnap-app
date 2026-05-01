@@ -11,6 +11,7 @@ interface ShortcutHandlers {
   resume: () => void;
   cancel: () => void;
   toggleDraw: () => void;
+  onShowShortcuts?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
@@ -57,6 +58,12 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
           e.preventDefault();
           handlers.cancel();
         }
+      }
+
+      // ? — Show keyboard shortcuts help
+      if (e.key === '?' && !ctrl) {
+        e.preventDefault();
+        handlers.onShowShortcuts?.();
       }
     };
 

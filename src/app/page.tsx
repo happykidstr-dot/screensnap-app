@@ -22,7 +22,6 @@ import VirtualBgPicker from '@/components/VirtualBgPicker';
 import LanguageToggle from '@/components/LanguageToggle';
 import PresetManager from '@/components/PresetManager';
 import BatchToolbar from '@/components/BatchToolbar';
-import SignLanguagePanel from '@/components/SignLanguagePanel';
 import SignLanguageAvatar from '@/components/SignLanguageAvatar';
 import ShareModal from '@/components/ShareModal';
 import LiveCaptions from '@/components/LiveCaptions';
@@ -30,6 +29,7 @@ import LiveMonitor from '@/components/LiveMonitor';
 import SaveDialog from '@/components/SaveDialog';
 import { LibrarySection } from '@/components/LibrarySection';
 import { RecorderSection } from '@/components/RecorderSection';
+import KeyboardShortcutsOverlay from '@/components/KeyboardShortcutsOverlay';
 import {
   Monitor, Camera, Mic, MicOff, CameraOff, MonitorOff,
   Square, Pause, Play, Circle, Trash2, Clock,
@@ -74,6 +74,9 @@ export default function Home() {
 
   // ─── Presets ───
   const [showPresets, setShowPresets] = useState(false);
+
+  // ─── Keyboard Shortcuts Overlay ───
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // ─── Share ───
   const [shareVideo, setShareVideo] = useState<VideoRecord | null>(null);
@@ -157,6 +160,7 @@ export default function Home() {
     state: recorder.state, start: recorder.start, stop: recorder.stop,
     pause: recorder.pause, resume: recorder.resume, cancel: recorder.cancel,
     toggleDraw: () => setIsDrawing(v => !v),
+    onShowShortcuts: () => setShowShortcuts(v => !v),
   });
 
   // ─── Preset Loading ───
@@ -269,7 +273,8 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
 
-      {/* ── Sign Language Panel ── */}
+      {/* ── Keyboard Shortcuts Overlay ── */}
+      {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
 
       {/* ── Live Captions ── */}
       <LiveCaptions

@@ -91,18 +91,18 @@ export function RecorderSection({
 
           <h1 className="recorder-title text-3xl sm:text-4xl md:text-5xl font-black text-white mb-3 sm:mb-4 tracking-tight">
             {isActive 
-              ? (recorder.state === 'paused' ? '⏸ Kayıt Duraklatıldı' : '🔴 Kayıt Devam Ediyor') 
-              : recorder.audioOnly ? 'Sadece Ses Kaydı' : recorder.webcamOnly ? 'Webcam Kaydı' : 'Ekranı Kaydet'}
+              ? (recorder.state === 'paused' ? t('recordingPaused', lang) : t('recordingActive', lang)) 
+              : recorder.audioOnly ? t('audioRecording', lang) : recorder.webcamOnly ? t('webcamRecording', lang) : t('recordScreen', lang)}
           </h1>
           
           <p className="text-slate-400 mb-8 max-w-lg mx-auto text-base font-medium leading-relaxed">
             {isActive
               ? (recorder.state === 'paused'
-                  ? 'Devam et veya durdur ve kaydet.'
+                  ? t('resumeOrStop', lang)
                   : (recorder.webcamOnly || recorder.audioOnly)
-                      ? 'Kamera kaydediliyor — aşağıdaki Stop & Save ile bitirin.'
-                      : 'Kaydetmek istediğiniz pencereye geçin.')
-              : 'Ayarları yapın ve Başlat\'a basın. Kısayol: Ctrl+Shift+R'}
+                      ? t('cameraRecording', lang)
+                      : t('switchToWindow', lang))
+              : t('configureAndStart', lang)}
           </p>
 
           {/* ─── BIG RECORDING INDICATOR ─── */}

@@ -26,6 +26,7 @@ import { generateAISummary, getOpenAIKey } from '@/lib/aiSummary';
 import { translateTranscript, TRANSLATION_LANGUAGES } from '@/lib/aiTranslate';
 import { downloadBlob } from '@/lib/zipBackup';
 import { TranscriptRecorder } from '@/lib/transcript';
+import { exportSRT, exportVTT } from '@/lib/subtitleExport';
 import { getViewCount } from '@/lib/viewCount';
 import SpotlightOverlay from './SpotlightOverlay';
 import { toast } from './Toast';
@@ -317,38 +318,6 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
     }
   };
 
-  // ── SRT / VTT Export helpers ──────────────────────────────────────────────
-  const exportSRT = (segments: TranscriptSegment[], name: string) => {
-    const toTime = (s: number) => {
-      const h = Math.floor(s / 3600).toString().padStart(2, '0');
-      const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
-      const sec = Math.floor(s % 60).toString().padStart(2, '0');
-      const ms = Math.round((s % 1) * 1000).toString().padStart(3, '0');
-      return `${h}:${m}:${sec},${ms}`;
-    };
-    const content = segments.map((seg, i) => {
-      const nextStart = segments[i + 1]?.startTime ?? (seg.startTime + 3);
-      return `${i + 1}\n${toTime(seg.startTime)} --> ${toTime(nextStart)}\n${seg.text}`;
-    }).join('\n\n');
-    const blob = new Blob([content], { type: 'text/plain' });
-    downloadBlob(blob, `${name}.srt`);
-  };
-
-  const exportVTT = (segments: TranscriptSegment[], name: string) => {
-    const toTime = (s: number) => {
-      const h = Math.floor(s / 3600).toString().padStart(2, '0');
-      const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
-      const sec = Math.floor(s % 60).toString().padStart(2, '0');
-      const ms = Math.round((s % 1) * 1000).toString().padStart(3, '0');
-      return `${h}:${m}:${sec}.${ms}`;
-    };
-    const lines = segments.map((seg, i) => {
-      const nextStart = segments[i + 1]?.startTime ?? (seg.startTime + 3);
-      return `${i + 1}\n${toTime(seg.startTime)} --> ${toTime(nextStart)}\n${seg.text}`;
-    }).join('\n\n');
-    const blob = new Blob([`WEBVTT\n\n${lines}`], { type: 'text/vtt' });
-    downloadBlob(blob, `${name}.vtt`);
-  };
 
   // ── SRT / VTT Export ─────────────────────────────────────────────────────
   const handleExportSRT = () => {
