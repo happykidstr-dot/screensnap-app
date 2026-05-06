@@ -151,3 +151,55 @@ ${timestampedTranscript.substring(0, 3000)}`,
     return [];
   }
 }
+
+/**
+ * AI Video Script Generator — Teleprompter için senaryo üretir.
+ */
+export async function generateAIScript(
+  topic: string,
+  durationMinutes: number = 2,
+  language = 'tr'
+): Promise<string> {
+  const apiKey = getOpenAIKey();
+  if (!apiKey) throw new Error('No OpenAI API key. Add it in Settings.');
+  const langHint = language === 'tr' ? 'Türkçe yaz.' : `Write in ${language}.`;
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `Profesyonel video senaryosu yazarısın. Teleprompter için akıcı metinler oluşturursun. ${langHint}` },
+        { role: 'user', content: `Konu için ~${durationMinutes} dk video senaryosu yaz. Paragraflar arasına boş satır bırak, sadece metni döndür.\n\nKonu: ${topic}` },
+      ],
+      temperature: 0.7,
+      max_tokens: 1200,
+    }),
+  });
+  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `OpenAI error: ${res.status}`); }
+  const data = await res.json();
+  return data.choices[0]?.message?.content?.trim() ?? '';
+}
+
+/**
+ * AI Title Suggestion — Transkriptten kısa başlık önerir.
+ */
+export async function suggestRecordingTitle(transcript: string): Promise<string> {
+  const apiKey = getOpenAIKey();
+  if (!apiKey) return '';
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Video başlığı öneren asistansın. Sadece başlığı döndür.' },
+        { role: 'user', content: `Bu transkript için kısa video başlığı öner (max 8 kelime):\n\n${transcript.substring(0, 600)}` },
+      ],
+      temperature: 0.5, max_tokens: 30,
+    }),
+  });
+  if (!res.ok) return '';
+  const data = await res.json();
+  return data.choices[0]?.message?.content?.trim().replace(/^["']|["']$/g, '') ?? '';
+}

@@ -70,34 +70,41 @@ export default function VirtualBgPicker({
       </button>
 
       {open && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-72 bg-slate-900 border border-white/10 rounded-2xl p-3 shadow-2xl space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-white">Sanal Arka Plan</p>
-            <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white text-xs">X</button>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 w-[360px] bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_0_40px_rgba(0,0,0,0.5)] space-y-4">
+          <div className="flex items-center justify-between border-b border-white/10 pb-2">
+            <p className="text-sm font-bold text-white flex items-center gap-2">🖼️ Sanal Arka Plan</p>
+            <button onClick={() => setOpen(false)} className="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors">✕</button>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 h-64 overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
             {/* None / Off */}
             <button
               onClick={() => { onChange(null); onVirtualStudio(false); }}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl border text-[10px] font-semibold transition-all ${
-                !value ? 'border-teal-500/60 bg-teal-500/15 text-teal-300' : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+              className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl border aspect-video transition-all ${
+                !value ? 'border-teal-500 bg-teal-500/15 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.3)]' : 'border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20 hover:bg-white/10'
               }`}
             >
-              <span className="text-base">Off</span>
-              <span>Kapalı</span>
+              <span className="text-2xl opacity-60">🚫</span>
+              <span className="text-xs font-bold">Kapalı</span>
             </button>
 
             {presets.map(p => (
               <button key={p.path}
                 onClick={() => onChange(p.path)}
-                className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border overflow-hidden transition-all ${
-                  value === p.path ? 'border-teal-500/60 scale-105 shadow-lg shadow-teal-500/20' : 'border-white/10 hover:border-white/30'
+                className={`relative flex flex-col items-center p-1 rounded-xl border overflow-hidden transition-all group ${
+                  value === p.path ? 'border-teal-500 bg-teal-500/10 shadow-[0_0_15px_rgba(20,184,166,0.3)]' : 'border-white/10 hover:border-white/30 hover:bg-white/5'
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.path} alt={p.name} className="w-full h-10 object-cover rounded-lg" />
-                <span className="text-[8px] text-slate-400 truncate w-full">{p.name}</span>
+                <img src={p.path} alt={p.name} className="w-full aspect-video object-cover rounded-lg" />
+                <span className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[90%] text-[10px] text-white text-center font-bold bg-black/70 backdrop-blur-sm py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity truncate px-2">
+                  {p.name}
+                </span>
+                {value === p.path && (
+                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center text-white shadow-md">
+                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                )}
               </button>
             ))}
           </div>

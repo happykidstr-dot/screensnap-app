@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { Pen, Eraser, Trash2, Undo2, Minus, Plus, ArrowUpRight, Square, Type, Highlighter, Zap } from 'lucide-react';
 
-type Tool = 'pen' | 'eraser' | 'laser' | 'arrow' | 'rect' | 'text' | 'highlight';
+type Tool = 'pen' | 'eraser' | 'laser' | 'arrow' | 'rect' | 'circle' | 'text' | 'highlight' | 'stamp';
 
 interface DrawOverlayProps {
   annotationCanvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
@@ -22,6 +22,7 @@ interface DrawnPath {
 }
 
 const COLORS = ['#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#7c3aed'];
+const STAMPS = ['⭐', '✅', '❌', '💡', '🔥', '👆', '❗', '🎯'];
 
 export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -36,6 +37,7 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
   const [size, setSize] = useState(4);
   const [textInput, setTextInput] = useState('');
   const [textPos, setTextPos] = useState<PathPoint | null>(null);
+  const [selectedStamp, setSelectedStamp] = useState('⭐');
   const [, forceRender] = useState(0);
 
   // Wire canvas to annotationCanvasRef so compositor picks it up
@@ -99,6 +101,12 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
       if (path.points.length < 2) { ctx.restore(); return; }
       const [a, b] = [path.points[0], path.points[path.points.length - 1]];
       ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+    } else if (path.tool === 'circle') {
+      if (path.points.length < 2) { ctx.restore(); return; }
+      const [a, b] = [path.points[0], path.points[path.points.length - 1]];
+      const rx = Math.abs(b.x - a.x) / 2; const ry = Math.abs(b.y - a.y) / 2;
+      const cx = (a.x + b.x) / 2; const cy = (a.y + b.y) / 2;
+      ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
     } else if (path.tool === 'arrow') {
       if (path.points.length < 2) { ctx.restore(); return; }
       const [a, b] = [path.points[0], path.points[path.points.length - 1]];
@@ -113,6 +121,11 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
     } else if (path.tool === 'text' && path.text) {
       ctx.font = `bold ${path.size * 5 + 12}px Inter, sans-serif`;
       ctx.fillText(path.text, path.points[0].x, path.points[0].y);
+    } else if (path.tool === 'stamp' && path.text) {
+      const fontSize = path.size * 8 + 16;
+      ctx.font = `${fontSize}px serif`;
+      ctx.globalAlpha = 1;
+      ctx.fillText(path.text, path.points[0].x - fontSize / 2, path.points[0].y + fontSize / 2);
     }
     ctx.restore();
   }, []);
@@ -137,6 +150,14 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
       const pos = getPos(e);
       setTextPos(pos);
       setTextInput('');
+      return;
+    }
+    if (tool === 'stamp') {
+      const pos = getPos(e);
+      const path: DrawnPath = { tool: 'stamp', color, size, points: [pos], opacity: 1, text: selectedStamp };
+      pathsRef.current.push(path);
+      redrawAll();
+      forceRender(n => n + 1);
       return;
     }
     isDrawingRef.current = true;
@@ -218,8 +239,10 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
     ['pen',       <Pen className="w-4 h-4" />,          'Kalem'],
     ['arrow',     <ArrowUpRight className="w-4 h-4" />, 'Ok'],
     ['rect',      <Square className="w-4 h-4" />,       'Kutu'],
+    ['circle',    <span className="text-sm">⬭</span>,   'Daire'],
     ['highlight', <Highlighter className="w-4 h-4" />,  'İşaretleyici'],
     ['text',      <Type className="w-4 h-4" />,         'Metin'],
+    ['stamp',     <span className="text-sm">{selectedStamp}</span>, 'Emoji Damga'],
     ['laser',     <Zap className="w-4 h-4" />,          'Lazer'],
     ['eraser',    <Eraser className="w-4 h-4" />,       'Silgi'],
   ];
@@ -277,8 +300,8 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
           ))}
         </div>
 
-        {/* Color swatches (not for eraser/laser) */}
-        {tool !== 'eraser' && tool !== 'laser' && (
+        {/* Color swatches + custom color (not for eraser/laser) */}
+        {tool !== 'eraser' && tool !== 'laser' && tool !== 'stamp' && (
           <div className="flex items-center gap-1.5 px-3 border-r border-white/10">
             {COLORS.map(c => (
               <button
@@ -287,6 +310,24 @@ export default function DrawOverlay({ annotationCanvasRef, onClose }: DrawOverla
                 className="w-5 h-5 rounded-full transition-transform hover:scale-110"
                 style={{ background: c, outline: color === c ? '2px solid white' : '2px solid transparent', outlineOffset: '1px' }}
               />
+            ))}
+            {/* Custom color */}
+            <input type="color" value={color} onChange={e => setColor(e.target.value)}
+              title="Özel renk"
+              className="w-5 h-5 rounded-full cursor-pointer border-0 bg-transparent p-0" />
+          </div>
+        )}
+
+        {/* Emoji stamp selector */}
+        {tool === 'stamp' && (
+          <div className="flex items-center gap-1 px-3 border-r border-white/10">
+            {STAMPS.map(s => (
+              <button key={s} onClick={() => setSelectedStamp(s)}
+                className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-all ${
+                  selectedStamp === s ? 'bg-purple-600 scale-110' : 'hover:bg-white/10'
+                }`}>
+                {s}
+              </button>
             ))}
           </div>
         )}

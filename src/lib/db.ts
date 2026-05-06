@@ -46,6 +46,8 @@ export interface VideoRecord {
   aiWikiDocument?: string; // AI generated Wiki/Notion markdown
   cta?: { text: string; url: string; }; // Interactive CTA button
   reactions?: VideoReaction[]; // Async video reactions
+  password?: string; // Şifreli paylaşım için
+  workspace?: string; // Multi-tenant Team Workspace için
 }
 
 interface LoomDB extends DBSchema {
@@ -143,6 +145,13 @@ export async function getAllFolders(): Promise<string[]> {
   return folders.sort();
 }
 
+export async function getAllWorkspaces(): Promise<string[]> {
+  const db = await getDB();
+  const all = await db.getAll('videos');
+  const workspaces = [...new Set(all.map(v => v.workspace).filter(Boolean))] as string[];
+  return workspaces.sort();
+}
+
 export async function updateVideoChapters(id: string, chapters: Chapter[]): Promise<void> {
   const db = await getDB();
   const record = await db.get('videos', id);
@@ -175,4 +184,16 @@ export async function updateVideoCTA(id: string, cta: { text: string; url: strin
   const db = await getDB();
   const record = await db.get('videos', id);
   if (record) { record.cta = cta; await db.put('videos', record); }
+}
+
+export async function updateVideoPassword(id: string, password?: string): Promise<void> {
+  const db = await getDB();
+  const record = await db.get('videos', id);
+  if (record) { record.password = password; await db.put('videos', record); }
+}
+
+export async function updateVideoWorkspace(id: string, workspace: string | undefined): Promise<void> {
+  const db = await getDB();
+  const record = await db.get('videos', id);
+  if (record) { record.workspace = workspace; await db.put('videos', record); }
 }

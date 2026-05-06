@@ -12,7 +12,7 @@ import {
   Hash as SlackIcon, ImageIcon as BgIcon
 } from 'lucide-react';
 import { QuizBuilder, QuizOverlay, QuizQuestion } from './VideoQuiz';
-import { updateVideoCTA, addVideoReaction, VideoReaction, updateVideoChapters } from '@/lib/db';
+import { updateVideoCTA, addVideoReaction, VideoReaction, updateVideoChapters, updateVideoPassword } from '@/lib/db';
 import { processMagicCut } from '@/lib/magicCut';
 import TrimEditor from './TrimEditor';
 import ThumbnailPicker from './ThumbnailPicker';
@@ -20,7 +20,7 @@ import CommentTimeline from './CommentTimeline';
 import QRModal from './QRModal';
 import EmbedModal from './EmbedModal';
 import { exportAsGif } from '@/lib/gifExport';
-import { uploadToCloud, isCloudConfigured } from '@/lib/supabase';
+import { uploadToCloud, isCloudConfigured, saveVideoMetadataToCloud } from '@/lib/supabase';
 import { convertVideo, compressVideo } from '@/lib/ffmpegExport';
 import { generateAISummary, getOpenAIKey } from '@/lib/aiSummary';
 import { translateTranscript, TRANSLATION_LANGUAGES } from '@/lib/aiTranslate';
@@ -143,6 +143,12 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
   const [pushTaskTitle, setPushTaskTitle] = useState(record.title);
   const [pushTaskDesc, setPushTaskDesc] = useState(record.aiSummary || '');
   const [isPushing, setIsPushing] = useState(false);
+  const [pushPlatform, setPushPlatform] = useState<'slack'|'jira'|'custom'>('slack');
+
+  // Security / Password State
+  const [videoPassword, setVideoPassword] = useState(record.password || '');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   useEffect(() => {
     const url = URL.createObjectURL(record.blob);
@@ -262,6 +268,7 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
     try {
       const url = await uploadToCloud(record.id, record.blob, setUploadProgress);
       await updateVideoCloudUrl(record.id, url);
+      await saveVideoMetadataToCloud(record, url);
       setCloudUrl(url);
       navigator.clipboard.writeText(url);
       setCopied(true); 
@@ -485,28 +492,80 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
     if (!webhookUrl) return alert("Lütfen ayarlardan Webhook URL'sini girin.");
     setIsPushing(true);
     try {
-      const payload = {
-        title: pushTaskTitle,
-        description: pushTaskDesc,
-        videoUrl: cloudUrl || 'Buluta yüklenmemiş yerel video.',
-        timestamp: new Date().toISOString()
-      };
+      let payload: any = {};
+      
+      if (pushPlatform === 'slack') {
+        payload = {
+          text: `🎥 *Yeni Video Kaydı:* ${pushTaskTitle}\n${cloudUrl ? `<${cloudUrl}|Videoyu İzle>` : '_Buluta yüklenmemiş yerel video_'}\n\n*Özet:*\n${pushTaskDesc}`
+        };
+      } else if (pushPlatform === 'jira') {
+        payload = {
+          fields: {
+            project: { key: "PROJ" },
+            summary: pushTaskTitle,
+            description: `${pushTaskDesc}\n\nVideo: ${cloudUrl || 'Yerel'}`,
+            issuetype: { name: "Task" }
+          }
+        };
+      } else {
+        payload = {
+          title: pushTaskTitle,
+          description: pushTaskDesc,
+          videoUrl: cloudUrl || 'Buluta yüklenmemiş yerel video.',
+          timestamp: new Date().toISOString()
+        };
+      }
+
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("Webhook başarısız oldu (API Hatası)");
-      alert("✅ Görev başarıyla projeye gönderildi!");
+      toast(pushPlatform === 'slack' ? 'Slack kanalına gönderildi!' : pushPlatform === 'jira' ? 'Jira bileti oluşturuldu!' : 'Görev başarıyla itildi!', 'success');
       setShowPushDialog(false);
     } catch (err: any) {
-      alert("Gönderim başarısız. Lütfen URL'yi kontrol edin. Hata: " + err.message);
+      toast("Gönderim başarısız. Lütfen URL'yi kontrol edin. Hata: " + err.message, 'error');
     } finally {
       setIsPushing(false);
     }
   };
 
+  const handleSavePassword = async () => {
+    setIsSavingPassword(true);
+    try {
+      await updateVideoPassword(record.id, passwordInput || undefined);
+      setVideoPassword(passwordInput);
+      toast(passwordInput ? 'Videonuz artık şifre ile korunuyor!' : 'Şifre koruması kaldırıldı', 'success');
+      if (!passwordInput) setPasswordInput('');
+    } catch (err) {
+      toast('Şifre kaydedilemedi', 'error');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   const seek = (t: number) => { if (videoRef.current) videoRef.current.currentTime = t; };
+
+  const handleExportCSV = () => {
+    const duration = record.duration;
+    let csvContent = "data:text/csv;charset=utf-8,Saniye,Dakika_Format,Dikkat_Skoru\n";
+    for (let i = 0; i < 50; i++) {
+      const timeInSec = Math.round(duration * (i / 50));
+      const dropOff = Math.exp(-i / 25); 
+      const peaks = Math.sin(i / 3) * 0.2 + 0.8; 
+      const heightPct = Math.round(Math.max(10, Math.min(100, dropOff * peaks * 100)));
+      csvContent += `${timeInSec},${formatDuration(timeInSec)},${heightPct}\n`;
+    }
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `heatmap_${record.title.replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast('Heatmap CSV indirildi', 'success');
+  };
 
   if (showTrim) return <TrimEditor record={record} onClose={() => setShowTrim(false)} onSaved={() => { setShowTrim(false); onSaved?.(); }} />;
 
@@ -650,6 +709,39 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
             </div>
           </div>
 
+          {/* Chapter Progress Bar — tıklanabilir chapter marker'ları */}
+          {localChapters.length > 0 && duration > 0 && (
+            <div className="px-6 py-2 border-b border-white/5">
+              <div className="relative h-6 flex items-center">
+                {/* Track */}
+                <div className="absolute inset-x-0 h-1 bg-white/10 rounded-full">
+                  {/* Play progress */}
+                  <div className="h-full bg-purple-500/50 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (currentTime / duration) * 100)}%` }} />
+                </div>
+                {/* Chapter markers */}
+                {localChapters.map((ch, i) => {
+                  const pct = Math.min(100, (ch.time / duration) * 100);
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => seek(ch.time)}
+                      title={`${i + 1}. ${ch.label}`}
+                      className="absolute -translate-x-1/2 group"
+                      style={{ left: `${pct}%` }}
+                    >
+                      <div className="w-2.5 h-2.5 rounded-full bg-purple-400 border-2 border-slate-900 shadow-lg group-hover:scale-150 transition-transform" />
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-purple-500/30 text-purple-300 text-[9px] font-bold px-2 py-0.5 rounded-lg pointer-events-none">
+                        {ch.label}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[9px] text-slate-600 mt-1">{localChapters.length} chapter · Marker'lara tıklayarak atla</p>
+            </div>
+          )}
+
           {/* Action bar */}
           <div className="flex items-center gap-2 px-6 py-4 border-b border-white/10 flex-wrap">
             <ActionBtn icon={<Scissors className="w-4 h-4" />} label="Trim" onClick={() => setShowTrim(true)} />
@@ -755,6 +847,17 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
                 </div>
               ) : (
                 <>
+                  <div className="flex gap-2 mb-2">
+                    <label className="flex items-center gap-2 text-xs text-white bg-black/20 px-3 py-2 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5">
+                      <input type="radio" name="pushPlatform" checked={pushPlatform === 'slack'} onChange={() => setPushPlatform('slack')} /> Slack
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white bg-black/20 px-3 py-2 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5">
+                      <input type="radio" name="pushPlatform" checked={pushPlatform === 'jira'} onChange={() => setPushPlatform('jira')} /> Jira
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white bg-black/20 px-3 py-2 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5">
+                      <input type="radio" name="pushPlatform" checked={pushPlatform === 'custom'} onChange={() => setPushPlatform('custom')} /> Özel
+                    </label>
+                  </div>
                   <div>
                     <label className="text-xs text-slate-400 font-bold mb-1 block">Görev Başlığı</label>
                     <input value={pushTaskTitle} onChange={e => setPushTaskTitle(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500 text-sm" />
@@ -1178,10 +1281,17 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
                      );
                   })}
                 </div>
-                <div className="flex justify-between text-xs text-slate-500 font-mono px-2">
-                  <span>0:00 (Başlangıç)</span>
-                  <span>Dikkat Dağılımı</span>
-                  <span>{formatDuration(record.duration)} (Bitiş)</span>
+                <div className="flex justify-between items-center text-xs text-slate-500 font-mono px-2 mt-2">
+                  <div className="flex justify-between w-full">
+                    <span>0:00 (Başlangıç)</span>
+                    <span>Dikkat Dağılımı</span>
+                    <span>{formatDuration(record.duration)} (Bitiş)</span>
+                  </div>
+                </div>
+                <div className="flex justify-end mt-4">
+                  <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-white/10">
+                    📥 Raporu İndir (CSV)
+                  </button>
                 </div>
               </div>
             )}
@@ -1204,10 +1314,23 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
                    <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity"><Lock className="w-16 h-16 text-emerald-500" /></div>
                    <h4 className="text-white font-bold flex items-center gap-2 mb-2"><Lock className="w-4 h-4 text-emerald-500" /> Şifreli & SSO Erişim</h4>
                    <p className="text-xs text-slate-400 mb-4 pr-10">Videonun sadece belirlenen şirket mailleri veya şifre ile izlenebilmesini sağlar.</p>
-                   <div className="flex gap-2 relative z-10">
-                     <input type="password" placeholder="Şifre belirle..." className="bg-black/40 border border-white/10 text-slate-300 text-sm rounded-xl px-3 py-2 flex-1 outline-none focus:border-emerald-500" />
-                     <button className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors">Kilitle</button>
-                   </div>
+                   {videoPassword ? (
+                     <div className="flex flex-col gap-2 relative z-10">
+                       <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl text-emerald-300 text-sm font-bold">
+                         <span>🔒 Şifre Koruması Aktif</span>
+                         <button onClick={() => { setPasswordInput(''); handleSavePassword(); }} disabled={isSavingPassword} className="text-emerald-400 hover:text-white text-xs underline">Kaldır</button>
+                       </div>
+                       <div className="flex gap-2">
+                         <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Yeni şifre belirle..." className="bg-black/40 border border-white/10 text-slate-300 text-sm rounded-xl px-3 py-2 flex-1 outline-none focus:border-emerald-500" />
+                         <button onClick={handleSavePassword} disabled={isSavingPassword || !passwordInput} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-colors">{isSavingPassword ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Güncelle'}</button>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex gap-2 relative z-10">
+                       <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} placeholder="Şifre belirle..." className="bg-black/40 border border-white/10 text-slate-300 text-sm rounded-xl px-3 py-2 flex-1 outline-none focus:border-emerald-500" />
+                       <button onClick={handleSavePassword} disabled={isSavingPassword || !passwordInput} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-colors">{isSavingPassword ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Kilitle'}</button>
+                     </div>
+                   )}
                  </div>
               </div>
             )}

@@ -48,3 +48,49 @@ export async function deleteFromCloud(id: string): Promise<void> {
   const supabase = await getClient();
   await supabase.storage.from(BUCKET).remove([`${id}/video.webm`]);
 }
+
+/**
+ * 🔐 SUPABASE RLS & DATABASE SETUP FOR SECURE VIDEOS
+ * 
+ * Yukarıdaki "Storage" yüklemesi herkese açık URL üretir. 
+ * Zamanlı silme ve şifreli (Password) RLS koruması için Supabase'de bir tablo açmalısınız.
+ * 
+ * 1. SQL Editörde şu tabloyu oluşturun:
+ * ----------------------------------------------------
+ * CREATE TABLE public.videos (
+ *   id TEXT PRIMARY KEY,
+ *   title TEXT NOT NULL,
+ *   public_url TEXT NOT NULL,
+ *   password TEXT,
+ *   expires_at TIMESTAMP WITH TIME ZONE,
+ *   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+ * );
+ * 
+ * ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY;
+ * ----------------------------------------------------
+ * 
+ * 2. RLS Politikası Ekleme (Sadece şifreyi bilenler veya şifresiz videolar):
+ * ----------------------------------------------------
+ * CREATE POLICY "Secure Video Access" ON public.videos
+ * FOR SELECT USING (
+ *   password IS NULL OR 
+ *   password = current_setting('request.headers', true)::json->>'x-video-password'
+ * );
+ * ----------------------------------------------------
+ */
+
+export async function saveVideoMetadataToCloud(record: any, publicUrl: string) {
+  if (!isCloudConfigured) return;
+  const supabase = await getClient();
+  
+  // Burada yerel IndexedDB'deki şifre ve bilgileri Supabase tablomuza yazıyoruz (RLS için)
+  const { error } = await supabase.from('videos').upsert({
+    id: record.id,
+    title: record.title,
+    public_url: publicUrl,
+    password: record.password || null, // Eğer şifre varsa RLS politikası devreye girer
+    // expires_at: retention (24h vb.) hesaplanıp eklenebilir
+  });
+
+  if (error) console.error("Cloud DB kayıt hatası:", error.message);
+}

@@ -6,7 +6,7 @@ import { FRAME_OPTIONS, FrameStyle, drawFrame, KJ_STYLE_OPTIONS, KJ_POSITION_OPT
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useLiveShare } from '@/hooks/useLiveShare';
 import { useGuestRoom } from '@/hooks/useGuestRoom';
-import { getAllVideos, deleteVideo, VideoRecord, getAllFolders, updateVideoFolder, updateVideoTags } from '@/lib/db';
+import { getAllVideos, deleteVideo, VideoRecord, getAllFolders, updateVideoFolder, updateVideoTags, getAllWorkspaces, updateVideoWorkspace } from '@/lib/db';
 import { Lang, t, getSavedLang, saveLang } from '@/lib/i18n';
 import { RecordingPreset } from '@/lib/presets';
 import AudioVisualizer from '@/components/AudioVisualizer';
@@ -127,6 +127,8 @@ export default function Home() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [folders, setFolders] = useState<string[]>([]);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [workspaces, setWorkspaces] = useState<string[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [liveChapters, setLiveChapters] = useState<Chapter[]>([]);
@@ -138,6 +140,38 @@ export default function Home() {
   const [urlInput, setUrlInput] = useState('');
   const [showUrlDialog, setShowUrlDialog] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
+
+  // ── Pre-recording Notes ──
+  const [recordingNote, setRecordingNote] = useState('');
+  const [showNotePanel, setShowNotePanel] = useState(false);
+
+  // ── Zamanlı Kayıt (Scheduled Recording) ──
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduleCountdown, setScheduleCountdown] = useState<number | null>(null);
+  const [showSchedulePanel, setShowSchedulePanel] = useState(false);
+  const scheduleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleScheduleRecording = () => {
+    if (!scheduledTime) return;
+    const target = new Date(scheduledTime).getTime();
+    const now = Date.now();
+    const diff = target - now;
+    if (diff <= 0) { toast('Geçmiş bir zaman seçildi!', 'error'); return; }
+    toast(`Kayıt ${Math.round(diff/1000)} saniye sonra başlayacak`, 'info');
+    setShowSchedulePanel(false);
+    setScheduleCountdown(Math.round(diff / 1000));
+    scheduleTimerRef.current = setInterval(() => {
+      setScheduleCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          if (scheduleTimerRef.current) clearInterval(scheduleTimerRef.current);
+          recorder.start();
+          toast('⏱️ Zamanlanmış kayıt başladı!', 'success');
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   // ─── Live Monitor (floating PiP-like preview during recording) ───
   const [showLiveMonitor, setShowLiveMonitor] = useState(false);
@@ -151,10 +185,70 @@ export default function Home() {
   }, [recorder.state]);
 
   const loadVideos = useCallback(async () => {
-    const [all, fols] = await Promise.all([getAllVideos(), getAllFolders()]);
-    setVideos(all); setFolders(fols); setLoadingVideos(false);
+    const [all, fols, wrks] = await Promise.all([getAllVideos(), getAllFolders(), getAllWorkspaces()]);
+    setVideos(all); setFolders(fols); setWorkspaces(wrks); setLoadingVideos(false);
   }, []);
   useEffect(() => { loadVideos(); }, [loadVideos]);
+
+  // ── Noise Gate: kayıt sırasında mic çok sessizse uyar ──
+  useEffect(() => {
+    if (recorder.state !== 'recording' || !recorder.withMic) return;
+    let ctx: AudioContext | null = null;
+    let analyzer: AnalyserNode | null = null;
+    let stream: MediaStream | null = null;
+    let intervalId: ReturnType<typeof setInterval>;
+    let silentSeconds = 0;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        ctx = new AudioContext();
+        analyzer = ctx.createAnalyser();
+        analyzer.fftSize = 256;
+        ctx.createMediaStreamSource(stream).connect(analyzer);
+        const data = new Uint8Array(analyzer.frequencyBinCount);
+        intervalId = setInterval(() => {
+          if (!analyzer) return;
+          analyzer.getByteFrequencyData(data);
+          const avg = data.reduce((a, b) => a + b, 0) / data.length;
+          if (avg < 5) {
+            silentSeconds++;
+            if (silentSeconds === 6) toast('🔇 Mikrofon çok sessiz — sesi kontrol et!', 'error');
+          } else { silentSeconds = 0; }
+        }, 1000);
+      } catch { /* mic izni yok */ }
+    })();
+    return () => {
+      clearInterval(intervalId);
+      stream?.getTracks().forEach(t => t.stop());
+      ctx?.close();
+    };
+  }, [recorder.state, recorder.withMic]);
+
+  // ── Sesli Komutlar ──
+  useEffect(() => {
+    if (recorder.state !== 'recording') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'tr-TR';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = (e: any) => {
+      const text = (e.results[e.results.length - 1][0].transcript || '').toLowerCase().trim();
+      if (text.includes('dur') || text.includes('durdur')) {
+        recorder.stop();
+        toast('🎤 Sesli komut: Kayıt durduruldu', 'info');
+      } else if (text.includes('bölüm') || text.includes('chapter')) {
+        setLiveChapters(prev => [...prev, { id: `ch_${Date.now()}`, time: 0, label: `Bölüm ${prev.length + 1}` }]);
+        toast('🎤 Sesli komut: Bölüm eklendi', 'info');
+      } else if (text.includes('duraklat') || text.includes('pause')) {
+        recorder.pause();
+        toast('🎤 Sesli komut: Duraklatıldı', 'info');
+      }
+    };
+    recognition.start();
+    return () => { try { recognition.stop(); } catch {} };
+  }, [recorder.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useKeyboardShortcuts({
     state: recorder.state, start: recorder.start, stop: recorder.stop,
@@ -276,6 +370,16 @@ export default function Home() {
       {/* ── Keyboard Shortcuts Overlay ── */}
       {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
 
+      {/* ── Zamanlanmış Kayıt Geri Sayım Overlay ── */}
+      {scheduleCountdown !== null && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl bg-amber-500/90 backdrop-blur text-white font-bold shadow-2xl border border-amber-300/30 animate-pulse">
+          <Timer className="w-5 h-5" />
+          <span>Kayıt {scheduleCountdown} saniye sonra başlayacak</span>
+          <button onClick={() => { if (scheduleTimerRef.current) clearInterval(scheduleTimerRef.current); setScheduleCountdown(null); }}
+            className="ml-2 text-amber-100 hover:text-white text-xs underline">İptal</button>
+        </div>
+      )}
+
       {/* ── Live Captions ── */}
       <LiveCaptions
         isRecording={recorder.state === 'recording'}
@@ -331,6 +435,49 @@ export default function Home() {
       </button>
 
 
+      {/* ── Scheduled Recording Panel ── */}
+      {showSchedulePanel && (
+        <div className="absolute top-[70px] right-24 z-50 w-72 bg-slate-900 border border-white/10 rounded-2xl p-4 shadow-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-white flex items-center gap-2"><Timer className="w-4 h-4 text-amber-400" /> Zamanlanmış Kayıt</p>
+            <button onClick={() => setShowSchedulePanel(false)} className="text-slate-500 hover:text-white text-xs">✕</button>
+          </div>
+          <p className="text-xs text-slate-400">Gelecekteki bir tarihe otomatik başlayacak bir kayıt kurun.</p>
+          <input
+            type="datetime-local"
+            value={scheduledTime}
+            onChange={e => setScheduledTime(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-amber-500"
+          />
+          <button onClick={handleScheduleRecording} disabled={!scheduledTime}
+            className="w-full py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-lg">
+            Kaydı Zamanla
+          </button>
+        </div>
+      )}
+
+        {/* Workspace "Yeni Ekle" modal */}
+        {activeWorkspace === '_new' && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-indigo-500/30 p-6 rounded-2xl shadow-2xl w-80">
+              <h3 className="text-white font-bold mb-2 text-lg">Yeni Çalışma Alanı</h3>
+              <p className="text-xs text-slate-400 mb-4">Videolarınızı paylaşabileceğiniz şirket içi bir alan adı girin.</p>
+              <input type="text" id="new-workspace-input" placeholder="Örn: Pazarlama Ekibi" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white outline-none focus:border-indigo-500 mb-4" />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setActiveWorkspace(null)} className="px-4 py-2 text-slate-400 hover:text-white text-sm font-bold">İptal</button>
+                <button onClick={async () => {
+                  const input = document.getElementById('new-workspace-input') as HTMLInputElement;
+                  if (input.value.trim()) {
+                    setWorkspaces(prev => [...new Set([...prev, input.value.trim()])]);
+                    setActiveWorkspace(input.value.trim());
+                  } else setActiveWorkspace(null);
+                }} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold">Oluştur</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Main Layout Body */}
       {/* Screenshot Modal */}
       {showScreenshot && screenshotData && (
         <ScreenshotModal
@@ -520,12 +667,27 @@ export default function Home() {
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-40 glass border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center shadow-lg shadow-purple-600/30">
-              <Video className="w-4 h-4 text-white" />
+          {/* Logo & Workspace */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 flex items-center justify-center shadow-lg shadow-purple-600/30">
+                <Video className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-white font-bold text-lg tracking-tight hidden xs:block">ScreenSnap</span>
             </div>
-            <span className="text-white font-bold text-lg tracking-tight hidden xs:block">ScreenSnap</span>
+
+            {/* Workspace Switcher */}
+            <div className="hidden sm:flex items-center">
+              <select
+                value={activeWorkspace || ''}
+                onChange={(e) => setActiveWorkspace(e.target.value || null)}
+                className="appearance-none bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-bold rounded-xl px-3 py-1.5 outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-sm"
+              >
+                <option value="">👤 Kişisel Alan</option>
+                {workspaces.map(w => <option key={w} value={w}>🏢 {w}</option>)}
+                <option value="_new">+ Ekip Ekle...</option>
+              </select>
+            </div>
           </div>
 
           {/* Center: recording status (mobile) */}
@@ -541,6 +703,13 @@ export default function Home() {
           {/* Right actions */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <LanguageToggle lang={lang} onChange={changeLang} />
+            <button
+              onClick={() => setShowSchedulePanel(v => !v)}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-sm font-semibold shadow-sm"
+              title="Zamanlanmış Kayıt"
+            >
+              <Timer className="w-4 h-4 text-amber-400" /> Zamanla
+            </button>
             <button
               onClick={() => setShowTeleprompter(v => !v)}
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-sm font-semibold shadow-sm"
@@ -822,7 +991,7 @@ export default function Home() {
 
           {/* ── VIDEO LIBRARY ── */}
           <LibrarySection
-            videos={videos}
+            videos={videos.filter(v => activeWorkspace ? v.workspace === activeWorkspace : !v.workspace)}
             folders={folders}
             loadingVideos={loadingVideos}
             activeFolder={activeFolder}
