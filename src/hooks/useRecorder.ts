@@ -403,7 +403,9 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests, captionRef 
       ctx.drawImage(bgImage, (bw-bMin)/2, (bh-bMin)/2, bMin, bMin, camX, camY, camDiam, camDiam);
     }
 
-    ctx.drawImage(camVid, camX, camY, camDiam, camDiam);
+    if (camVid.videoWidth > 0 && camVid.videoHeight > 0) {
+      ctx.drawImage(camVid, camX, camY, camDiam, camDiam);
+    }
     ctx.restore();
 
     // ── StreamYard Style Brand Border ──
@@ -950,14 +952,20 @@ export function useRecorder({ onSaved, onRequestTitle, onDrawGuests, captionRef 
           }
         } else {
           // ── Default 'screen' scene: screen fills canvas, cam PiP corner
-          const srcAspect = screenVid.videoWidth / (screenVid.videoHeight || 1);
+          const sw = screenVid.videoWidth || 1920;
+          const sh = screenVid.videoHeight || 1080;
+          const srcAspect = sw / sh;
           const dstAspect = outW / outH;
-          let sx = 0, sy = 0, sw = screenVid.videoWidth, sh = screenVid.videoHeight;
+          let sx = 0, sy = 0, cropW = sw, cropH = sh;
           if (Math.abs(srcAspect - dstAspect) > 0.01) {
-            if (srcAspect > dstAspect) { sw = sh * dstAspect; sx = (screenVid.videoWidth - sw) / 2; }
-            else { sh = sw / dstAspect; sy = (screenVid.videoHeight - sh) / 2; }
+            if (srcAspect > dstAspect) { cropW = cropH * dstAspect; sx = (sw - cropW) / 2; }
+            else { cropH = cropW / dstAspect; sy = (sh - cropH) / 2; }
           }
-          ctx.drawImage(screenVid, sx, sy, sw, sh, 0, 0, outW, outH);
+          if (screenVid.videoWidth > 0 && screenVid.videoHeight > 0) {
+            ctx.drawImage(screenVid, sx, sy, cropW, cropH, 0, 0, outW, outH);
+          } else {
+            ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, outW, outH);
+          }
 
           // Annotation (draw tool)
           if (annotationCanvasRef.current) ctx.drawImage(annotationCanvasRef.current, 0, 0, outW, outH);

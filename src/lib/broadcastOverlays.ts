@@ -334,27 +334,29 @@ export function drawCamBigScene(
   }
 
   // Screen PIP — bottom right, 28% of width
-  const pipW = Math.round(w * 0.28);
-  const pipH = Math.round(pipW * (screenVid.videoHeight / (screenVid.videoWidth || 1)));
-  const pipX = w - pipW - 18;
-  const pipY = h - pipH - 18;
+  if (screenVid && screenVid.videoWidth > 0 && screenVid.videoHeight > 0) {
+    const pipW = Math.round(w * 0.28);
+    const pipH = Math.round(pipW * (screenVid.videoHeight / (screenVid.videoWidth || 1)));
+    const pipX = w - pipW - 18;
+    const pipY = h - pipH - 18;
 
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 12;
-  ctx.strokeStyle = brandColor;
-  ctx.lineWidth = 2;
-  ctx.drawImage(screenVid, pipX, pipY, pipW, pipH);
-  ctx.strokeRect(pipX, pipY, pipW, pipH);
-  ctx.restore();
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = brandColor;
+    ctx.lineWidth = 2;
+    ctx.drawImage(screenVid, pipX, pipY, pipW, pipH);
+    ctx.strokeRect(pipX, pipY, pipW, pipH);
+    ctx.restore();
 
-  // "EKRAN" label on PIP
-  ctx.font = 'bold 10px Segoe UI, Arial';
-  ctx.fillStyle = brandColor;
-  ctx.fillRect(pipX, pipY - 16, 62, 16);
-  ctx.fillStyle = '#fff';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('📺 EKRAN', pipX + 4, pipY - 8);
+    // "EKRAN" label on PIP
+    ctx.font = 'bold 10px Segoe UI, Arial';
+    ctx.fillStyle = brandColor;
+    ctx.fillRect(pipX, pipY - 16, 62, 16);
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('📺 EKRAN', pipX + 4, pipY - 8);
+  }
 
   // ── News Desk Foreground (Layered look) ──
   if (withNewsDesk) {
