@@ -55,6 +55,8 @@ interface RecorderSectionProps {
   setShowPresets: (v: boolean) => void;
   setShowUrlDialog: (v: boolean) => void;
   setLiveChapters: (v: any) => void;
+  webtvBg: string | null;
+  setWebtvBg: (bg: string | null) => void;
 }
 
 export function RecorderSection({
@@ -64,7 +66,9 @@ export function RecorderSection({
   isSaving,
   setShowPresets,
   setShowUrlDialog,
-  setLiveChapters
+  setLiveChapters,
+  webtvBg,
+  setWebtvBg,
 }: RecorderSectionProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const isActive = recorder.state === 'recording' || recorder.state === 'paused';
@@ -282,6 +286,19 @@ export function RecorderSection({
                         </>
                       )}
                     </div>
+
+                    {/* Virtual Background Picker */}
+                    {!recorder.audioOnly && (
+                      <div className="pt-2">
+                        <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest px-2 mb-2">Sanal Arka Plan</p>
+                        <VirtualBgPicker
+                          value={webtvBg}
+                          onChange={setWebtvBg}
+                          virtualStudio={recorder.withVirtualStudio}
+                          onVirtualStudio={recorder.setWithVirtualStudio}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-4">

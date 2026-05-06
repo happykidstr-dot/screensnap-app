@@ -816,6 +816,8 @@ export default function Home() {
             setShowPresets={setShowPresets}
             setShowUrlDialog={setShowUrlDialog}
             setLiveChapters={setLiveChapters}
+            webtvBg={recorder.webtvBg}
+            setWebtvBg={recorder.setWebtvBg}
           />
 
           {/* ── VIDEO LIBRARY ── */}
