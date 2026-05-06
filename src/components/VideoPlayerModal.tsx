@@ -56,6 +56,8 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
   const [mp4Progress, setMp4Progress] = useState(0);
   const [compressing, setCompressing] = useState(false);
   const [compressProgress, setCompressProgress] = useState(0);
+  const [showCompressPanel, setShowCompressPanel] = useState(false);
+  const [compressTargetMb, setCompressTargetMb] = useState('50');
   const [uploadingCloud, setUploadingCloud] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [cloudUrl, setCloudUrl] = useState(record.cloudUrl);
@@ -242,16 +244,15 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
 
   const handleCompress = async () => {
     if (compressing) return;
-    const targetMB = parseFloat(prompt('Target file size in MB (e.g. 50):', '50') ?? '');
-    if (!targetMB || isNaN(targetMB)) return;
-    setCompressing(true); setCompressProgress(0);
+    const targetMB = parseFloat(compressTargetMb);
+    if (!targetMB || isNaN(targetMB) || targetMB <= 0) { toast('Geçerli bir MB değeri girin.', 'error'); return; }
+    setCompressing(true); setCompressProgress(0); setShowCompressPanel(false);
     try {
       const compressed = await compressVideo(record.blob, targetMB, setCompressProgress);
       downloadBlob(compressed, `${title}-compressed.mp4`);
       toast('Video sıkıştırıldı!', 'success');
     } catch (err) { 
       toast('Sıkıştırma başarısız.', 'error');
-      alert(`Compression failed: ${err}`); 
     } finally { setCompressing(false); setCompressProgress(0); }
   };
 
@@ -659,7 +660,7 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
             <ActionBtn icon={exportingMp4 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               label={exportingMp4 ? `MP4 ${mp4Progress}%` : 'MP4'} onClick={handleExportMp4} disabled={exportingMp4} />
             <ActionBtn icon={compressing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Minimize2 className="w-4 h-4" />}
-              label={compressing ? `${compressProgress}%` : 'Compress'} onClick={handleCompress} disabled={compressing} />
+              label={compressing ? `${compressProgress}%` : 'Compress'} onClick={() => setShowCompressPanel(v => !v)} disabled={compressing} />
             {/* SRT / VTT Export */}
             <ActionBtn icon={<FileDown className="w-4 h-4 text-cyan-400" />} label="SRT" onClick={handleExportSRT} title="Altyazı dosyası (.srt) indir" />
             <ActionBtn icon={<FileDown className="w-4 h-4 text-teal-400" />} label="VTT" onClick={handleExportVTT} title="Altyazı dosyası (.vtt) indir" />
@@ -712,6 +713,28 @@ export default function VideoPlayerModal({ record, onClose, onDeleted, onSaved }
             </button>
             <button onClick={handleDelete} className="p-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"><Trash2 className="w-4 h-4" /></button>
           </div>
+
+          {/* ── Compress Panel ── */}
+          {showCompressPanel && (
+            <div className="px-6 py-3 border-b border-white/10 bg-slate-800/40 flex items-center gap-3 flex-wrap">
+              <Minimize2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-xs text-slate-400 font-semibold shrink-0">Hedef Boyut:</span>
+              <input
+                type="number" min={1} max={2000} step={1}
+                value={compressTargetMb}
+                onChange={e => setCompressTargetMb(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCompress()}
+                className="w-24 bg-white/10 border border-white/15 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500 text-center"
+                placeholder="50"
+              />
+              <span className="text-xs text-slate-500">MB</span>
+              <button onClick={handleCompress} disabled={compressing}
+                className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold transition-all">
+                {compressing ? `${compressProgress}% Sıkıştırılıyor…` : 'Sıkıştır & İndir'}
+              </button>
+              <button onClick={() => setShowCompressPanel(false)} className="text-xs text-slate-500 hover:text-white ml-auto">✕ Kapat</button>
+            </div>
+          )}
 
           {/* ── SOSYAL MEDYADA PAYLAŞ ── */}
           <SocialSharePanel cloudUrl={cloudUrl} title={title} blob={record.blob} onDownload={() => {

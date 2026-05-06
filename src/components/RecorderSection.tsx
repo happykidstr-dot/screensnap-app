@@ -274,7 +274,28 @@ export function RecorderSection({
                       <Toggle active={recorder.withCountdownSound} onToggle={() => recorder.setWithCountdownSound(!recorder.withCountdownSound)} icon={<span>🔔</span>} label="Beep" />
                       <Toggle active={recorder.withIntroFade} onToggle={() => recorder.setWithIntroFade(!recorder.withIntroFade)} icon={<span>🌊</span>} label="Fade" />
                     </div>
-                    
+
+                    {/* ── Ses Mikseri ── */}
+                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest px-2 pt-2">🎚️ Ses Mikseri</p>
+                    <div className="space-y-2 px-1">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] text-slate-400 w-14 shrink-0">🎤 Mic</span>
+                        <input type="range" min={0} max={150} value={recorder.micVolume}
+                          onChange={e => recorder.setMicVolume(Number(e.target.value))}
+                          className="flex-1 accent-purple-500 h-1.5 rounded-full cursor-pointer" />
+                        <span className="text-[11px] text-slate-300 w-8 text-right">{recorder.micVolume}%</span>
+                      </div>
+                      {!recorder.audioOnly && !recorder.webcamOnly && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 w-14 shrink-0">🖥️ Sys</span>
+                          <input type="range" min={0} max={150} value={recorder.systemVolume}
+                            onChange={e => recorder.setSystemVolume(Number(e.target.value))}
+                            className="flex-1 accent-purple-500 h-1.5 rounded-full cursor-pointer" />
+                          <span className="text-[11px] text-slate-300 w-8 text-right">{recorder.systemVolume}%</span>
+                        </div>
+                      )}
+                    </div>
+
                     <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest px-2 pt-2">Görsel Efektler</p>
                     <div className="flex flex-wrap gap-2">
                       <Toggle active={recorder.showMouseHighlight} onToggle={() => recorder.setShowMouseHighlight(!recorder.showMouseHighlight)} icon={<Mouse className="w-4 h-4" />} label="Mouse" />
@@ -283,6 +304,7 @@ export function RecorderSection({
                         <>
                           <Toggle active={recorder.withBgBlur} onToggle={() => recorder.setWithBgBlur(!recorder.withBgBlur)} icon={<span>🌫️</span>} label="Blur" />
                           <Toggle active={recorder.withVirtualStudio} onToggle={() => recorder.setWithVirtualStudio(!recorder.withVirtualStudio)} icon={<span>👤</span>} label="AI BG Removal" accent="cyan" />
+                          <Toggle active={recorder.studioAudio} onToggle={() => recorder.setStudioAudio(!recorder.studioAudio)} icon={<span>🎙️</span>} label="Stüdyo Sesi" accent="cyan" />
                         </>
                       )}
                     </div>
@@ -317,6 +339,60 @@ export function RecorderSection({
                           options={[['16:9', '16:9 Wide'], ['4:3', '4:3 Classic'], ['1:1', '1:1 Square'], ['9:16', '9:16 Vertical']]} />
                       )}
                     </div>
+
+                    {/* ── Cam Size + Ring Color ── */}
+                    {!recorder.audioOnly && recorder.withCam && (
+                      <div className="space-y-3 px-1">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 w-20 shrink-0">📷 Cam Boyutu</span>
+                          <input type="range" min={10} max={40} value={recorder.webcamSizePct}
+                            onChange={e => recorder.setWebcamSizePct(Number(e.target.value))}
+                            className="flex-1 accent-cyan-500 h-1.5 rounded-full cursor-pointer" />
+                          <span className="text-[11px] text-slate-300 w-8 text-right">{recorder.webcamSizePct}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 w-20 shrink-0">🎨 Çerçeve Rengi</span>
+                          <input type="color" value={recorder.webcamRingColor}
+                            onChange={e => recorder.setWebcamRingColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg cursor-pointer border border-white/20 bg-transparent" />
+                          <span className="text-[11px] text-slate-400 font-mono">{recorder.webcamRingColor}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Renk & Parlaklık Kontrolleri ── */}
+                    {!recorder.audioOnly && (
+                      <div className="space-y-2 px-1">
+                        <p className="text-[10px] text-cyan-400 font-black uppercase tracking-widest">🎨 Video Renk Düzenleme</p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 w-20 shrink-0">☀️ Parlaklık</span>
+                          <input type="range" min={50} max={150} value={recorder.videoBrightness}
+                            onChange={e => recorder.setVideoBrightness(Number(e.target.value))}
+                            className="flex-1 accent-yellow-400 h-1.5 rounded-full cursor-pointer" />
+                          <span className="text-[11px] text-slate-300 w-10 text-right">{recorder.videoBrightness}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 w-20 shrink-0">🔲 Kontrast</span>
+                          <input type="range" min={50} max={150} value={recorder.videoContrast}
+                            onChange={e => recorder.setVideoContrast(Number(e.target.value))}
+                            className="flex-1 accent-slate-400 h-1.5 rounded-full cursor-pointer" />
+                          <span className="text-[11px] text-slate-300 w-10 text-right">{recorder.videoContrast}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 w-20 shrink-0">🌈 Doygunluk</span>
+                          <input type="range" min={0} max={200} value={recorder.videoSaturation}
+                            onChange={e => recorder.setVideoSaturation(Number(e.target.value))}
+                            className="flex-1 accent-pink-400 h-1.5 rounded-full cursor-pointer" />
+                          <span className="text-[11px] text-slate-300 w-10 text-right">{recorder.videoSaturation}%</span>
+                        </div>
+                        {(recorder.videoBrightness !== 100 || recorder.videoContrast !== 100 || recorder.videoSaturation !== 100) && (
+                          <button onClick={() => { recorder.setVideoBrightness(100); recorder.setVideoContrast(100); recorder.setVideoSaturation(100); }}
+                            className="text-[10px] text-slate-500 hover:text-red-400 transition-colors">
+                            ↺ Sıfırla
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     <div className="pt-4 space-y-4">
                       {/* Sub-pickers */}
