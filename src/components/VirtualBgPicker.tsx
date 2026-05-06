@@ -17,15 +17,31 @@ export default function VirtualBgPicker({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const presets = [
+    // ── Yerel arka planlar (public/webtv-bg/) ──────────────────────
+    { name: 'BG 1',          path: '/webtv-bg/bg1.png' },
+    { name: 'BG 2',          path: '/webtv-bg/bg2.png' },
+    { name: 'BG 3',          path: '/webtv-bg/bg3.png' },
+    { name: 'BG 4',          path: '/webtv-bg/bg4.png' },
+    { name: 'BG 5',          path: '/webtv-bg/bg5.png' },
+    { name: 'BG 6',          path: '/webtv-bg/bg6.png' },
+    { name: 'Galaxy',        path: '/webtv-bg/bg7.png' },
+    { name: 'BG 8',          path: '/webtv-bg/bg8.png' },
+    { name: 'BG 9',          path: '/webtv-bg/bg9.png' },
+    { name: 'BG 10',         path: '/webtv-bg/bg10.png' },
+    { name: 'Studio 1',      path: '/webtv-bg/studio1.jpg' },
+    { name: 'Studio 2',      path: '/webtv-bg/studio2.jpg' },
+    { name: 'Studio 3',      path: '/webtv-bg/studio3.jpg' },
+    { name: 'Studio 4',      path: '/webtv-bg/studio4.jpg' },
+    { name: 'Studio 5',      path: '/webtv-bg/studio5.jpg' },
+    { name: 'Studio 6',      path: '/webtv-bg/studio6.jpg' },
+    // ── Unsplash preset'leri ────────────────────────────────────────
     { name: 'Office Modern', path: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2000' },
     { name: 'Gradient Blue', path: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=2000' },
-    { name: 'Minimal Studio', path: 'https://images.unsplash.com/photo-1582192732843-fbca5ff9c2d1?auto=format&fit=crop&q=80&w=2000' },
-    { name: 'Tech Loft', path: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&q=80&w=2000' },
-    { name: 'Space Neon', path: 'https://images.unsplash.com/photo-1516339901600-af13a73858a5?auto=format&fit=crop&q=80&w=2000' },
-    { name: 'Cyber Studio', path: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=2000' },
-    { name: 'News Room', path: 'https://images.unsplash.com/photo-1595760780346-f972eb4c7096?auto=format&fit=crop&q=80&w=2000' },
-    { name: 'Galaxy', path: '/webtv-bg/bg7.png' },
-    { name: 'Office V1', path: '/webtv-bg/bg6.png' },
+    { name: 'Minimal Studio',path: 'https://images.unsplash.com/photo-1582192732843-fbca5ff9c2d1?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Tech Loft',     path: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Space Neon',    path: 'https://images.unsplash.com/photo-1516339901600-af13a73858a5?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'Cyber Studio',  path: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=2000' },
+    { name: 'News Room',     path: 'https://images.unsplash.com/photo-1595760780346-f972eb4c7096?auto=format&fit=crop&q=80&w=2000' },
   ];
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
